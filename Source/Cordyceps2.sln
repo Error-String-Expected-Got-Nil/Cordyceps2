@@ -1,0 +1,16 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cordyceps2", "Cordyceps2.csproj", "{298C6F2C-AEFA-4C4E-9DFE-47FC7BB1197B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{298C6F2C-AEFA-4C4E-9DFE-47FC7BB1197B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{298C6F2C-AEFA-4C4E-9DFE-47FC7BB1197B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{298C6F2C-AEFA-4C4E-9DFE-47FC7BB1197B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{298C6F2C-AEFA-4C4E-9DFE-47FC7BB1197B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

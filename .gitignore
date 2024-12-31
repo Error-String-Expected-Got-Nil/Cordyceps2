@@ -7,3 +7,6 @@ plugins/Cordyceps.pdb
 /Source/Cordyceps/packages
 Source/Cordyceps/packages.config
 Source/Cordyceps/App.config
+/Source/.idea
+/Source/obj
+Source/Cordyceps2.sln.DotSettings.user
