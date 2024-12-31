@@ -35,15 +35,15 @@
     </PropertyGroup>
     <ItemGroup>
         <Reference Include="Assembly-CSharp">
-          <HintPath>..\..\..\..\..\BepInEx\utils\PUBLIC-Assembly-CSharp.dll</HintPath>
+          <HintPath>..\..\..\..\..\..\BepInEx\utils\PUBLIC-Assembly-CSharp.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="BepInEx">
-          <HintPath>..\..\..\..\..\BepInEx\core\BepInEx.dll</HintPath>
+          <HintPath>..\..\..\..\..\..\BepInEx\core\BepInEx.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="HOOKS-Assembly-CSharp">
-          <HintPath>..\..\..\..\..\BepInEx\plugins\HOOKS-Assembly-CSharp.dll</HintPath>
+          <HintPath>..\..\..\..\..\..\BepInEx\plugins\HOOKS-Assembly-CSharp.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="System"/>
@@ -51,19 +51,20 @@
         <Reference Include="System.Data"/>
         <Reference Include="System.Xml"/>
         <Reference Include="UnityEngine">
-          <HintPath>..\..\..\..\Managed\UnityEngine.dll</HintPath>
+          <HintPath>..\..\..\..\..\Managed\UnityEngine.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.CoreModule">
-          <HintPath>..\..\..\..\Managed\UnityEngine.CoreModule.dll</HintPath>
+          <HintPath>..\..\..\..\..\Managed\UnityEngine.CoreModule.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="UnityEngine.ScreenCaptureModule">
-          <HintPath>..\..\..\..\Managed\UnityEngine.ScreenCaptureModule.dll</HintPath>
+          <HintPath>..\..\..\..\..\Managed\UnityEngine.ScreenCaptureModule.dll</HintPath>
           <Private>False</Private>
         </Reference>
     </ItemGroup>
     <ItemGroup>
+        <Compile Include="Cordyceps2Init.cs" />
         <Compile Include="Properties\AssemblyInfo.cs"/>
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets"/>
