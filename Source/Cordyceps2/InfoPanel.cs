@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Cordyceps2;
 
-// Implementation mostly copied from Alphappy's TAMacro
+// Implementation mostly copied from Alphappy's TAMacro.
 public static class InfoPanel
 {
     private static readonly Color TextColor = new(255, 215, 36);
@@ -125,7 +125,7 @@ public static class InfoPanel
             if (!_panelIsGrabbed) return;
             
             _panelAnchor = _originalGrabAnchorPosition + mpos - _originalGrabMousePosition;
-            // Text is crisper if forced into alignment like this
+            // Text is crisper if forced into alignment like this.
             _panelAnchor.x = Mathf.Floor(_panelAnchor.x) + 0.5f;
             
             UpdatePosition();
@@ -134,5 +134,29 @@ public static class InfoPanel
         {
             _panelIsGrabbed = false;
         }
+    }
+    
+    // Hook: Initializes info panel when camera is created.
+    public static void RoomCamera_ctor_Hook(On.RoomCamera.orig_ctor orig, RoomCamera self, RainWorldGame game, 
+        int cameraNumber)
+    {
+        orig(self, game, cameraNumber);
+        Initialize();
+    }
+
+    // Hook: Clears info panel when camera clears itself.
+    public static void RoomCamera_ClearAllSprites_Hook(On.RoomCamera.orig_ClearAllSprites orig, RoomCamera self)
+    {
+        Remove();
+        orig(self);
+    }
+
+    // Hook: Handles moving and updating info panel.
+    public static void RainWorldGame_GrafUpdate_Hook(On.RainWorldGame.orig_GrafUpdate orig, RainWorldGame self,
+        float timeStacker)
+    {
+        orig(self, timeStacker);
+        CheckGrab();
+        Update();
     }
 }

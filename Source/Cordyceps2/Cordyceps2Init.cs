@@ -24,6 +24,11 @@ public class Cordyceps2Init : BaseUnityPlugin
         {
             Log("Initializing.");
             
+            Log("Registering InfoPanel hooks.");
+            On.RoomCamera.ctor += InfoPanel.RoomCamera_ctor_Hook;
+            On.RoomCamera.ClearAllSprites += InfoPanel.RoomCamera_ClearAllSprites_Hook;
+            On.RainWorldGame.GrafUpdate += InfoPanel.RainWorldGame_GrafUpdate_Hook;
+            
             Log("Registering settings.");
             MachineConnector.SetRegisteredOI("esegn.cordyceps2", Cordyceps2Settings.Instance);
 
