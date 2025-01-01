@@ -1,7 +1,7 @@
 {
     "id": "esegn.cordyceps2",
     "name": "Cordyceps2 TAS Tool",
-    "version": "0.0.0",
+    "version": "1.0.0",
     "target_game_version": "v1.9.15b",
     "authors": "Error: String Expected, Got Nil",
     "description": "Rewrite of original Cordyceps TAS tool. Allows the tickrate of the game to be manually controlled, paused entirely, and stepped through tick-by-tick. Will allow for recording of gameplay footage in real time using a built-in, self-contained recording system, instead of needing an external program like the original Cordyceps did.",

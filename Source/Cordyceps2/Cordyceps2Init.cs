@@ -9,7 +9,7 @@ public class Cordyceps2Init : BaseUnityPlugin
 {
     public const string PluginGuid = "esegn.cordyceps2";
     public const string PluginName = "Cordyceps2 TAS Tool";
-    public const string PluginVersion = "0.0.0";
+    public const string PluginVersion = "1.0.0";
 
     private static bool _initialized;
     
