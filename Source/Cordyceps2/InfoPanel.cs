@@ -18,12 +18,12 @@ public static class InfoPanel
     private static Vector2 _originalGrabAnchorPosition;
     private static bool _panelIsGrabbed;
 
-    private static Vector2 _panelAnchor = new Vector2(100.5f, 700f);
+    private static Vector2 _panelAnchor = new(100.5f, 700f);
     
     private static float HeaderHeight => (Regex.Matches(_header.text, "\n").Count + 1) * _lineHeight;
     private static float InfoLabelHeight => (Regex.Matches(_infoLabel.text, "\n").Count + 1) 
                                             * _lineHeight;
-    private static Vector2 PanelBounds => new Vector2(280f, HeaderHeight + InfoLabelHeight);
+    private static Vector2 PanelBounds => new(280f, HeaderHeight + InfoLabelHeight);
 
     public static void Initialize()
     {
@@ -32,8 +32,8 @@ public static class InfoPanel
         _container.SetPosition(Vector2.zero);
 
         _header = new FLabel(RWCustom.Custom.GetFont(),
-                $"Cordyceps v{Cordyceps2Init.PluginVersion}\nPress " +
-                $"[{Cordyceps2Settings.ToggleInfoPanelKey.Value.ToString()}] to toggle visibility of this " +
+                $"Cordyceps2 v{Cordyceps2Init.PluginVersion}\n" +
+                $"Press [{Cordyceps2Settings.ToggleInfoPanelKey.Value.ToString()}] to toggle visibility of this " +
                 "panel.\n" + 
                 "You can also click and drag it to change its position.\n")
         {
@@ -88,8 +88,8 @@ public static class InfoPanel
     private static void UpdatePosition()
     {
         _header.SetPosition(_panelAnchor);
-        _infoLabel.SetPosition(_panelAnchor - new Vector2(0f, HeaderHeight * 2f));
-        _infoLabelData.SetPosition(_panelAnchor - new Vector2(-110f, HeaderHeight * 2f));
+        _infoLabel.SetPosition(_panelAnchor - new Vector2(0f, HeaderHeight + _lineHeight));
+        _infoLabelData.SetPosition(_panelAnchor - new Vector2(-110f, HeaderHeight + _lineHeight));
     }
 
     public static void UpdateVisibility()
@@ -114,8 +114,8 @@ public static class InfoPanel
             if (!_panelIsGrabbed
                 && mpos.x >= _panelAnchor.x
                 && mpos.x <= _panelAnchor.x + PanelBounds.x
-                && mpos.y <= _panelAnchor.y
-                && mpos.y >= _panelAnchor.y - PanelBounds.y)
+                && mpos.y <= _panelAnchor.y + _lineHeight
+                && mpos.y >= _panelAnchor.y - PanelBounds.y + _lineHeight)
             {
                 _panelIsGrabbed = true;
                 _originalGrabAnchorPosition = _panelAnchor;

@@ -29,6 +29,14 @@ public class Cordyceps2Init : BaseUnityPlugin
             On.RoomCamera.ClearAllSprites += InfoPanel.RoomCamera_ClearAllSprites_Hook;
             On.RainWorldGame.GrafUpdate += InfoPanel.RainWorldGame_GrafUpdate_Hook;
             
+            Log("Registering TimeControl hooks.");
+            On.RainWorldGame.Update += TimeControl.RainWorldGame_Update_Hook;
+            On.MoreSlugcats.SpeedRunTimer.GetTimerTickIncrement +=
+                TimeControl.MoreSlugcats_SpeedRunTimer_GetTimerTickIncrement_Hook;
+            
+            Log("Registering TimeControl IL hook.");
+            IL.RainWorldGame.RawUpdate += TimeControl.RainWorldGame_RawUpdate_ILHook;
+            
             Log("Registering settings.");
             MachineConnector.SetRegisteredOI("esegn.cordyceps2", Cordyceps2Settings.Instance);
 
