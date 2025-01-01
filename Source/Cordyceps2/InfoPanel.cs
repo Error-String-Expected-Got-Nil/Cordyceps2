@@ -32,7 +32,7 @@ public static class InfoPanel
         _container.SetPosition(Vector2.zero);
 
         _header = new FLabel(RWCustom.Custom.GetFont(),
-                $"Cordyceps2 v{Cordyceps2Init.PluginVersion}\n" +
+                $"Cordyceps2 v{Cordyceps2Main.PluginVersion}\n" +
                 $"Press [{Cordyceps2Settings.ToggleInfoPanelKey.Value.ToString()}] to toggle visibility of this " +
                 "panel.\n" + 
                 "You can also click and drag it to change its position.\n")

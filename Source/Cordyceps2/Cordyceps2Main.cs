@@ -1,19 +1,27 @@
 ﻿using System;
+using System.Collections;
 using BepInEx;
 using UnityEngine;
 
 namespace Cordyceps2;
 
 [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-public class Cordyceps2Init : BaseUnityPlugin
+public class Cordyceps2Main : BaseUnityPlugin
 {
     public const string PluginGuid = "esegn.cordyceps2";
     public const string PluginName = "Cordyceps2 TAS Tool";
     public const string PluginVersion = "1.0.0";
 
+    public static Cordyceps2Main Instance;
+
     private static bool _initialized;
     
-    private void OnEnable() => On.RainWorld.OnModsInit += RainWorld_OnModsInit_Hook;
+    private void OnEnable()
+    {
+        Instance = this;
+        
+        On.RainWorld.OnModsInit += RainWorld_OnModsInit_Hook;
+    }
 
     private static void RainWorld_OnModsInit_Hook(On.RainWorld.orig_OnModsInit orig, RainWorld self)
     {
@@ -47,6 +55,6 @@ public class Cordyceps2Init : BaseUnityPlugin
             Log($"ERROR - Exception during initialization: {e}");
         }
     }
-
+        
     private static void Log(string str) => Debug.Log($"[Cordyceps2] {str}");
 }
