@@ -78,11 +78,11 @@ public static class InfoPanel
             (Cordyceps2Settings.ShowTickCounter.Value ? "\nTick Count:" : "");
         
         _infoLabelData.text =
-            $"{Cordyceps.UnmodifiedTickrate}\n" +
-            $"{Cordyceps.DesiredTickrate}\n" +
-            (Cordyceps.TickrateCapOn ? "On" : "Off") + "\n" +
-            (Cordyceps.TickPauseOn ? "On" : "Off") +
-            (Cordyceps2Settings.ShowTickCounter.Value ? $"\n{Cordyceps.TickCount}" : "");
+            $"{TimeControl.UnmodifiedTickrate}\n" +
+            $"{TimeControl.DesiredTickrate}\n" +
+            (TimeControl.TickrateCapOn ? "On" : "Off") + "\n" +
+            (TimeControl.TickPauseOn ? "On" : "Off") +
+            (Cordyceps2Settings.ShowTickCounter.Value ? $"\n{TimeControl.TickCount}" : "");
     }
 
     private static void UpdatePosition()
@@ -94,7 +94,7 @@ public static class InfoPanel
 
     public static void UpdateVisibility()
     {
-        _container.isVisible = Cordyceps.ShowInfoPanel;
+        _container.isVisible = TimeControl.ShowInfoPanel;
     }
 
     public static void Remove()
