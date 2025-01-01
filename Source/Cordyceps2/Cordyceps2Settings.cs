@@ -26,7 +26,7 @@ public class Cordyceps2Settings : OptionInterface
 
     public static Configurable<KeyCode> ToggleTickPauseKey =
         Instance.config.Bind(nameof(ToggleTickPauseKey), KeyCode.Period, new ConfigurableInfo(
-            "Press to toggle game pause without showing pause menu."));
+            "Press to pause game by stopping physics ticks."));
 
     public static Configurable<KeyCode> TickAdvanceKey =
         Instance.config.Bind(nameof(TickAdvanceKey), KeyCode.Slash, new ConfigurableInfo(
