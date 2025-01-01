@@ -23,6 +23,9 @@ public class Cordyceps2Init : BaseUnityPlugin
         try
         {
             Log("Initializing.");
+            
+            Log("Registering settings.");
+            MachineConnector.SetRegisteredOI("esegn.cordyceps2", Cordyceps2Settings.Instance);
 
             _initialized = true;
         }
