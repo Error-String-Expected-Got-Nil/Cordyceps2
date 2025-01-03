@@ -216,5 +216,5 @@ public static class TimeControl
         _keyHoldStopwatch = 0f;
     }
     
-    private static void Log(string str) { Debug.Log($"[Cordyceps/TimeControl] {str}"); }
+    private static void Log(string str) { Debug.Log($"[Cordyceps2/TimeControl] {str}"); }
 }

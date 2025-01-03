@@ -13,6 +13,7 @@
         <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
         <FileAlignment>512</FileAlignment>
         <LangVersion>default</LangVersion>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
         <PlatformTarget>AnyCPU</PlatformTarget>
@@ -34,6 +35,10 @@
         <WarningLevel>4</WarningLevel>
     </PropertyGroup>
     <ItemGroup>
+        <Reference Include="0Harmony">
+          <HintPath>..\..\..\..\..\..\BepInEx\core\0Harmony.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
         <Reference Include="Assembly-CSharp">
           <HintPath>..\..\..\..\..\..\BepInEx\utils\PUBLIC-Assembly-CSharp.dll</HintPath>
           <Private>False</Private>
@@ -56,8 +61,6 @@
         </Reference>
         <Reference Include="System"/>
         <Reference Include="System.Core"/>
-        <Reference Include="System.Data"/>
-        <Reference Include="System.Xml"/>
         <Reference Include="UnityEngine">
           <HintPath>..\..\..\..\..\Managed\UnityEngine.dll</HintPath>
           <Private>False</Private>
