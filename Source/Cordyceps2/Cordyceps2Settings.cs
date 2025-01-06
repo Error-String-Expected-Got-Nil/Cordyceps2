@@ -1,4 +1,8 @@
-﻿using Menu.Remix.MixedUI;
+﻿using System.IO;
+using System.Reflection;
+using HarmonyLib;
+using Menu.Remix.MixedUI;
+using MonoMod.Cil;
 using UnityEngine;
 
 namespace Cordyceps2;
@@ -7,6 +11,9 @@ public class Cordyceps2Settings : OptionInterface
 {
     private static readonly string[] H264Presets = ["ultrafast", "veryfast", "faster", "fast", "medium", "slow", 
         "slower", "veryslow", "placebo"];
+
+    private static readonly MethodInfo SetKeyboardOnInfo = AccessTools.PropertySetter(typeof(OpTextBox),
+        nameof(OpTextBox._KeyboardOn));
     
     public static readonly Cordyceps2Settings Instance = new();
 
@@ -92,8 +99,6 @@ public class Cordyceps2Settings : OptionInterface
             "h264 encoder preset. Faster options are less efficient but take less processing time. Be " +
             "careful when increasing this, you should probably leave it on the default.",
             new ConfigAcceptableList<string>(H264Presets)));
-    
-    
 
     public override void Initialize()
     {
@@ -185,7 +190,12 @@ public class Cordyceps2Settings : OptionInterface
             // Middle row
             new OpLabel(10f, 505f, "Output Directory")
                 {description = RecordingOutputDirectory.info.description},
-            // TODO: Directory selection text box
+            new OpTextBox(RecordingOutputDirectory, new Vector2(10f, 470f), 570f)
+                {description = RecordingOutputDirectory.info.description},
+            new OpLabelLong(new Vector2(10f, 435f), new Vector2(570f, 0f), 
+                "Given path must be a directory, or a valid path for a directory. If the directory does not " +
+                "exist when recording starts, it will be created. If the given path is not valid or the directory " +
+                "could not be created, recording will fail to start, and it will be noted as the reason in the log."),
             
             // Encoder options footer
             new OpLabelLong(new Vector2(10f, 150f), new Vector2(570f, 0f), 
