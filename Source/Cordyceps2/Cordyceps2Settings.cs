@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Reflection;
+using FFmpeg.AutoGen;
 using HarmonyLib;
 using Menu.Remix.MixedUI;
 using MonoMod.Cil;
@@ -7,15 +8,29 @@ using UnityEngine;
 
 namespace Cordyceps2;
 
-public class Cordyceps2Settings : OptionInterface 
+public class Cordyceps2Settings : OptionInterface
 {
-    private static readonly string[] H264Presets = ["ultrafast", "veryfast", "faster", "fast", "medium", "slow", 
-        "slower", "veryslow", "placebo"];
+    private static readonly string[] H264Presets 
+        = ["ultrafast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"];
 
-    private static readonly MethodInfo SetKeyboardOnInfo = AccessTools.PropertySetter(typeof(OpTextBox),
-        nameof(OpTextBox._KeyboardOn));
+    private static readonly string[] LibAvLogLevels 
+        = ["quiet", "panic", "fatal", "error", "warning", "info", "verbose", "debug", "trace"];
     
     public static readonly Cordyceps2Settings Instance = new();
+
+    public static int LibAvLogLevelInt => LibAvLogLevel.Value switch
+    {
+        "quiet" => ffmpeg.AV_LOG_QUIET,
+        "panic" => ffmpeg.AV_LOG_PANIC,
+        "fatal" => ffmpeg.AV_LOG_FATAL,
+        "error" => ffmpeg.AV_LOG_ERROR,
+        "warning" => ffmpeg.AV_LOG_WARNING,
+        "info" => ffmpeg.AV_LOG_INFO,
+        "verbose" => ffmpeg.AV_LOG_VERBOSE,
+        "debug" => ffmpeg.AV_LOG_DEBUG,
+        "trace" => ffmpeg.AV_LOG_TRACE,
+        _ => ffmpeg.AV_LOG_ERROR
+    };
 
     // Time Control Page
     // First column
@@ -99,12 +114,20 @@ public class Cordyceps2Settings : OptionInterface
             "h264 encoder preset. Faster options are less efficient but take less processing time. Be " +
             "careful when increasing this, you should probably leave it on the default.",
             new ConfigAcceptableList<string>(H264Presets)));
+    
+    // Extras Page
+    // First column
+    public static Configurable<string> LibAvLogLevel =
+        Instance.config.Bind(nameof(LibAvLogLevel), "error", new ConfigurableInfo(
+            "libav logging level. Only for debugging purposes.",
+            new ConfigAcceptableList<string>(LibAvLogLevels)));
 
     public override void Initialize()
     {
         base.Initialize();
 
-        Tabs = [new OpTab(this, "Time Control"), new OpTab(this, "Recording")];
+        Tabs = [new OpTab(this, "Time Control"), new OpTab(this, "Recording"), 
+            new OpTab(this, "Extras")];
         
         // Time Control
         Tabs[0].AddItems(new UIelement[]
@@ -168,8 +191,8 @@ public class Cordyceps2Settings : OptionInterface
             // First column
             new OpLabel(10f, 575f, "Start Recording")
                 {description = StartRecordingKey.info.description},
-            new OpKeyBinder(StartRecordingKey, new Vector2(150f, 570f), 
-                new Vector2(120f, 30f)) {description = StartRecordingKey.info.description},
+            new OpKeyBinder(StartRecordingKey, new Vector2(150f, 570f), new Vector2(120f, 30f)) 
+                {description = StartRecordingKey.info.description},
                 
             new OpLabel(10f, 540f, "Stop Recording")
                 {description = StopRecordingKey.info.description},
@@ -199,7 +222,7 @@ public class Cordyceps2Settings : OptionInterface
             
             // Encoder options footer
             new OpLabelLong(new Vector2(10f, 150f), new Vector2(570f, 0f), 
-                "h264 encoder options. Controls certain factors about how recorded videos are encoded. If you " +
+                "Encoder options. Controls certain factors about how recorded videos are encoded. If you " +
                 "don't already know what these mean or how they work, you should probably leave them default."),
             
             // Footer first column
@@ -217,6 +240,16 @@ public class Cordyceps2Settings : OptionInterface
                 {description = EncoderPreset.info.description},
             new OpComboBox(EncoderPreset, new Vector2(150f, 25f), 120, H264Presets)
                 {description = EncoderPreset.info.description},
+        });
+        
+        // Extras
+        Tabs[2].AddItems(new UIelement[]
+        {
+            // First column
+            new OpLabel(10f, 575f, "libav Log Level")
+                {description = LibAvLogLevel.info.description},
+            new OpComboBox(LibAvLogLevel, new Vector2(150f, 570f), 120, LibAvLogLevels) 
+                {description = LibAvLogLevel.info.description},
         });
     }
 }

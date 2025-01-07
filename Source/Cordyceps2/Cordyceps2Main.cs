@@ -11,15 +11,20 @@ public class Cordyceps2Main : BaseUnityPlugin
     public const string PluginName = "Cordyceps2 TAS Tool";
     public const string PluginVersion = "1.0.0";
 
+    // Only valid after initialization, when all mods are loaded.
+    public static string ModPath => ModManager.ActiveMods.Find(mod => mod.id == PluginGuid)?.path;
+    
     public static Cordyceps2Main Instance;
 
     private static bool _initialized;
+    private static bool _postInitialized;
     
     private void OnEnable()
     {
         Instance = this;
         
         On.RainWorld.OnModsInit += RainWorld_OnModsInit_Hook;
+        On.RainWorld.PostModsInit += RainWorld_PostModsInit_Hook;
     }
 
     private static void RainWorld_OnModsInit_Hook(On.RainWorld.orig_OnModsInit orig, RainWorld self)
@@ -52,6 +57,24 @@ public class Cordyceps2Main : BaseUnityPlugin
         catch (Exception e)
         {
             Log($"ERROR - Exception during initialization: {e}");
+        }
+    }
+
+    private static void RainWorld_PostModsInit_Hook(On.RainWorld.orig_PostModsInit orig, RainWorld self)
+    {
+        orig(self);
+        if (_postInitialized) return;
+
+        try
+        {
+            Log("Registering libav binaries.");
+            Recording.Initialize();
+
+            _postInitialized = true;
+        }
+        catch (Exception e)
+        {
+            Log($"ERROR - Exception during post-initialization: {e}");
         }
     }
         
