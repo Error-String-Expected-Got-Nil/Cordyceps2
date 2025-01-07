@@ -6,6 +6,8 @@ using UnityEngine;
 
 namespace Cordyceps2;
 
+// Handles starting, stopping, initialization, and passing of raw frame data to the encoder for recording.
+// See the Encoder class for the code actually responsible for encoding and saving the data to a video.
 public static class Recording
 {
     public static bool BinariesLoaded;

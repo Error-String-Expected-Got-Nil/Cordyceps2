@@ -86,12 +86,16 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
+        <Compile Include="BufferedEventWaitHandle.cs" />
         <Compile Include="Cordyceps2Main.cs" />
         <Compile Include="Cordyceps2Settings.cs" />
+        <Compile Include="Encoder.cs" />
+        <Compile Include="EncoderException.cs" />
         <Compile Include="InfoPanel.cs" />
         <Compile Include="Properties\AssemblyInfo.cs"/>
         <Compile Include="Recording.cs" />
         <Compile Include="TimeControl.cs" />
+        <Compile Include="Pointer.cs" />
     </ItemGroup>
     <ItemGroup>
       <None Include="packages.config" />
