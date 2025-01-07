@@ -247,5 +247,7 @@ public class Cordyceps2Settings : OptionInterface
             new OpComboBox(LibAvLogLevel, new Vector2(150f, 570f), 120, LibAvLogLevels) 
                 {description = LibAvLogLevel.info.description},
         });
+
+        LibAvLogLevel.OnChange += Recording.SetLibAvLogLevel;
     }
 }
