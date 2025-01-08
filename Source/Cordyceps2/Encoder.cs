@@ -36,10 +36,13 @@ public unsafe class Encoder : IDisposable
 
     private AVStream* _videoStream;
     private Task _videoCodecThread;
+    private Task _muxerThread;
+    private Task _stopTask;
 
     private long _framecount;
     
     private bool _hardStop;
+    private bool _forceStop;
     private bool _codecsStopped;
     private bool _disposed;
     
@@ -83,7 +86,7 @@ public unsafe class Encoder : IDisposable
         if (ffmpeg.avcodec_open2(_videoCodecContext, _videoCodec, null) < 0)
             throw new EncoderException("Failed to open video codec.");
 
-        var outputFormat = ffmpeg.av_guess_format(null, "mp4", null);
+        var outputFormat = ffmpeg.av_guess_format("mp4", null, null);
         if (outputFormat == null) throw new EncoderException("Could not get mp4 output format.");
         
         AVFormatContext* fmtctx = null;
@@ -183,15 +186,7 @@ public unsafe class Encoder : IDisposable
                         // Have to rescale packet timestaps from video time base to stream time base. MINMAX flag makes
                         // the rounding pass ignore the special AV_NOPTS_VALUE for timestamps. NEAR_INF flag is the
                         // default round mode for av_rescale_q, the version of this function without options.
-                        packet->pts = ffmpeg.av_rescale_q_rnd(
-                            packet->pts, _videoTimeBase, _videoStream->time_base,
-                            AVRounding.AV_ROUND_NEAR_INF | AVRounding.AV_ROUND_PASS_MINMAX);
-                        packet->dts = ffmpeg.av_rescale_q_rnd(
-                            packet->dts, _videoTimeBase, _videoStream->time_base,
-                            AVRounding.AV_ROUND_NEAR_INF | AVRounding.AV_ROUND_PASS_MINMAX);
-                        packet->duration = ffmpeg.av_rescale_q(
-                            packet->duration, _videoTimeBase, _videoStream->time_base);
-                        
+                        RescalePacketTimestamps(packet, _videoTimeBase, _videoStream->time_base);
                         SubmitPacket(packet);
                         packet = null;
                         continue;
@@ -212,9 +207,52 @@ public unsafe class Encoder : IDisposable
         }
     }
 
+    // Should only be called when encoder is stopping and video codec is ready to stop. Sends the flush command to the
+    // codec and empties any buffered packets to the packet queue.
+    private void DrainVideoCodec()
+    {
+        AVPacket* packet = null;
+
+        try
+        {
+            if (ffmpeg.avcodec_send_frame(_videoCodecContext, null) < 0)
+                throw new EncoderException("Failed to send flush packet to video codec.");
+
+            while (true)
+            {
+                packet = ffmpeg.av_packet_alloc();
+                if (packet == null) throw new EncoderException("Failed to allocate video codec output packet.");
+
+                var ret = ffmpeg.avcodec_receive_packet(_videoCodecContext, packet);
+
+                // No more packets buffered, draining is finished.
+                if (ret == ffmpeg.AVERROR_EOF) break;
+
+                if (ret == 0)
+                {
+                    RescalePacketTimestamps(packet, _videoTimeBase, _videoStream->time_base);
+                    SubmitPacket(packet);
+                    packet = null;
+                    continue;
+                }
+
+                throw new EncoderException("Error receiving packet during video codec draining.");
+            }
+        }
+        finally
+        {
+            ffmpeg.av_packet_free(&packet);
+        }
+    }
+
     private void SubmitPacket(AVPacket* packet)
     {
-        if (_hardStop) return;
+        if (_hardStop)
+        {
+            // If in hard stop, any packets submitted are taken and discarded immediately.
+            ffmpeg.av_packet_free(&packet);
+            return;
+        }
         
         _packetQueue.Enqueue(packet);
         _packetSubmitted.Release();
@@ -234,7 +272,6 @@ public unsafe class Encoder : IDisposable
 
                 if (!_packetQueue.TryDequeue(out var packetRef))
                 {
-                    // TODO: Check on this, need to figure out exact procedure for stopping Encoder
                     if (_codecsStopped) break;
                     continue;
                 }
@@ -253,7 +290,31 @@ public unsafe class Encoder : IDisposable
         }
     }
 
-    // TODO: Implement
+    private void CloseMuxer()
+    {
+        // Flush interleave buffer and write the trailer.
+        if (ffmpeg.av_interleaved_write_frame(_outputFormatContext, null) < 0)
+            throw new EncoderException("Error trying to flush buffered interleaved packets.");
+        if (ffmpeg.av_write_trailer(_outputFormatContext) < 0)
+            throw new EncoderException("Error trying to write video file trailer.");
+
+        // AVIO context must be explicitly closed, it is not done when the AVFormatContext is freed.
+        if (ffmpeg.avio_close(_outputFormatContext->pb) < 0)
+            throw new EncoderException("Error trying to close AVIO output resource.");
+    }
+
+    private void RescalePacketTimestamps(AVPacket* packet, AVRational from, AVRational to)
+    {
+        packet->pts = ffmpeg.av_rescale_q_rnd(
+            packet->pts, from, to,
+            AVRounding.AV_ROUND_NEAR_INF | AVRounding.AV_ROUND_PASS_MINMAX);
+        packet->dts = ffmpeg.av_rescale_q_rnd(
+            packet->dts, from, to,
+            AVRounding.AV_ROUND_NEAR_INF | AVRounding.AV_ROUND_PASS_MINMAX);
+        packet->duration = ffmpeg.av_rescale_q(packet->duration, from, to);
+    }
+
+    // Assumes that the given outputPath has already been verified to be valid before calling.
     public void Start(string outputPath)
     {
         if (Faulted) 
@@ -268,43 +329,158 @@ public unsafe class Encoder : IDisposable
         _videoStream->time_base = _videoTimeBase;
         _videoStream->avg_frame_rate = new AVRational { num = VideoConfig.Framerate, den = 1 };
 
-        _videoCodecThread = Task.Run(VideoCodecThread).ContinueWith(vthread =>
+        _videoCodecThread = Task.Run(VideoCodecThread);
+        _videoCodecThread.ContinueWith(vthread =>
             {
                 Faulted = true;
                 OnFault?.Invoke(this, "video codec", vthread.Exception, Stop());
             },
             TaskContinuationOptions.OnlyOnFaulted
         );
+        
+        // Open the AVIO context for the muxer. This was allocated by the output context when it was created, and put
+        // into the 'pb' field, so we grab it from there. Have to make it a local so we can take its address.
+        var ctx = _outputFormatContext->pb;
+        if (ffmpeg.avio_open(&ctx, outputPath, ffmpeg.AVIO_FLAG_WRITE) < 0)
+            throw new EncoderException("Failed to open output AVIO context. Given filepath: " + outputPath);
+        _outputFormatContext->pb = ctx;
+        
+        // This may or may not actually write anything to a file, but this must be called to initialize the muxer.
+        if (ffmpeg.avformat_write_header(_outputFormatContext, null) < 0)
+            throw new EncoderException("Failed to write output file header/initialize muxer.");
 
-        // TODO: Start muxer
+        _muxerThread = Task.Run(MuxerThread);
+        _muxerThread.ContinueWith(mthread =>
+            {
+                Faulted = true;
+                OnFault?.Invoke(this, "muxer", mthread.Exception, HardStop());    
+            }, 
+            TaskContinuationOptions.OnlyOnFaulted
+        );
 
         Running = true;
     }
     
-    // TODO: Implement
-    // Procedure something like: Set Stopping to true to stop taking input, signal codec and muxer threads one more
-    // time so they clear their queue and see that they're finished.
-    // Once codecs and muxer threads return, flush the codecs, finish writing file, etc.
+    // Stops the Encoder, emptying any remaining buffered data and saving the video file. Encoder has stopped once the
+    // returned Task completes. Does nothing and returns null if Encoder is not running.
+    //
+    // This would make more sense as an async method but unfortunately await statements are not permitted in an unsafe
+    // context, and making this class not unsafe would require rewriting it to not use pointer fields, which would be
+    // much worse than the alternative here of using Task.Run().
     public Task Stop()
     {
-        throw new NotImplementedException();
+        if (!Running) return null;
+        
+        Stopping = true;
+        _stopTask = Task.Run(StopProcedure);
+        return _stopTask;
+        
+        void StopProcedure()
+        {
+            // Release an extra permit so that the video codec thread dequeues nothing when it runs out, allowing it to
+            // see that it's stopping and break.
+            _videoDataSubmitted.Release();
+            WaitTaskCatch(_videoCodecThread);
+
+            // Empty anything remaining in the video codec, unless hard stop was triggered.
+            if (!_hardStop) DrainVideoCodec();
+
+            // Codecs are finished processing, notify the muxer in the same way as the codecs.
+            _codecsStopped = true;
+            _packetSubmitted.Release();
+            WaitTaskCatch(_muxerThread);
+            
+            // Finish the video file and close the AVIO stream, unless force stop was triggered.
+            if (!_forceStop) CloseMuxer();
+
+            Running = false;
+            Stopping = false;
+            Stopped = true;
+            _stopTask = null;
+        }
     }
 
     
-    // TODO: Implement
     // In-between for Stop() and ForceStop(). Stops without processing any remaining data or packets in buffers, but
-    // still attempts to properly save the video file.
+    // still attempts to properly save the video file. If already stopping, sets _hardStop to true and returns the
+    // existing stop task.
     public Task HardStop()
     {
-        throw new NotImplementedException();
+        if (Stopping)
+        {
+            _hardStop = true;
+            return _stopTask;
+        }
+        
+        if (!Running) return null;
+        
+        _hardStop = true;
+        Stopping = true;
+
+        _stopTask = Task.Run(HardStopProcedure);
+        return _stopTask;
+        
+        void HardStopProcedure()
+        {
+            _videoDataSubmitted.Release();
+            WaitTaskCatch(_videoCodecThread);
+
+            _packetSubmitted.Release();
+            WaitTaskCatch(_muxerThread);
+            
+            if (!_forceStop) CloseMuxer();
+            
+            Running = false;
+            Stopping = false;
+            Stopped = true;
+            _stopTask = null;
+        }
     }
     
-    // TODO: Implement
     // Synchronous hard stop, makes all codec and muxer threads stop at the first opportunity, WITHOUT ensuring the
     // video file is properly saved. Should only be called if the Encoder is disposed witout being stopped first.
+    // If already stopping, sets hard stop and force stop to true and waits for the existing stop task to complete.
     private void ForceStop()
     {
-        throw new NotImplementedException();
+        if (Stopping)
+        {
+            _hardStop = true;
+            _forceStop = true;
+            WaitTaskCatch(_stopTask);
+        }
+        
+        if (!Running) return;
+        
+        _hardStop = true;
+        Stopping = true;
+
+        _videoDataSubmitted.Release();
+        WaitTaskCatch(_videoCodecThread);
+
+        _packetSubmitted.Release();
+        WaitTaskCatch(_muxerThread);
+
+        // No check to see if the AVIO stream closed successfully because throwing an exception from Dispose() is bad.
+        ffmpeg.avio_close(_outputFormatContext->pb);
+        
+        Running = false;
+        Stopping = false;
+        Stopped = true;
+    }
+
+    // Waits for a task to complete synchronously, suppressing any exceptions it threw. This is for the codec/muxer
+    // threads, since they handle exceptions using continuations already, and we don't want the stop functions throwing
+    // an exception propagated from a codec/muxer thread, since we may be stopping *because* they faulted.
+    private static void WaitTaskCatch(Task task)
+    {
+        try
+        {
+            task.Wait();
+        }
+        catch (Exception)
+        {
+            // Intentionally eat any exceptions.
+        }
     }
 
     public void Dispose()
@@ -336,6 +512,8 @@ public unsafe class Encoder : IDisposable
         var vctx = _videoCodecContext;
         
         ffmpeg.avcodec_free_context(&vctx);
+        
+        ffmpeg.avformat_free_context(_outputFormatContext);
         
         _disposed = true;
     }
