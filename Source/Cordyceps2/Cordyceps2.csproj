@@ -86,7 +86,6 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="BufferedEventWaitHandle.cs" />
         <Compile Include="Cordyceps2Main.cs" />
         <Compile Include="Cordyceps2Settings.cs" />
         <Compile Include="Encoder.cs" />

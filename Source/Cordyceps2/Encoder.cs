@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Threading;
 using FFmpeg.AutoGen;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -18,18 +19,24 @@ namespace Cordyceps2;
 
 public unsafe class Encoder : IDisposable
 {
-    public const AVCodecID VideoCodec = AVCodecID.AV_CODEC_ID_H264; 
+    public const AVCodecID VideoCodec = AVCodecID.AV_CODEC_ID_H264;
+    
+    // Wait events for data-consuming threads are handled by a SemaphoreSlim, which must have a set upper limit on the
+    // maximum number of permitted releases. A "release" in this case indicates a data item in the queue waiting to be
+    // processed. In this context, the limit is fine, since the queue should only grow beyond a small size if data
+    // is being submitted faster than it is being consumed, which would be VERY BAD, and the encoder throwing an 
+    // exception because of it is a good thing.
+    public const int QueueLimit = 1024;
     
     private readonly ConcurrentQueue<Texture2D> _videoDataQueue = new();
     private readonly ConcurrentQueue<Pointer<AVPacket>> _packetQueue = new();
 
-    private readonly BufferedEventWaitHandle _videoDataSubmitted = new();
-    private readonly BufferedEventWaitHandle _packetSubmitted = new();
+    private readonly SemaphoreSlim _videoDataSubmitted = new(QueueLimit);
+    private readonly SemaphoreSlim _packetSubmitted = new(QueueLimit);
     
-    private SwsContext* _frameFormatter;
-    private int _inputLinesize;
-    private AVCodec* _videoCodec;
-    private AVCodecContext* _videoCodecContext;
+    private readonly SwsContext* _frameFormatter;
+    private readonly int _inputLinesize;
+    private readonly AVCodecContext* _videoCodecContext;
 
     private long _framecount;
     
@@ -52,10 +59,10 @@ public unsafe class Encoder : IDisposable
         );
         _inputLinesize = ffmpeg.av_image_get_linesize(AVPixelFormat.AV_PIX_FMT_RGBA, conf.VideoInputWidth, 0);
         
-        _videoCodec = ffmpeg.avcodec_find_encoder(VideoCodec);
-        if (_videoCodec == null) throw new EncoderException("Could not find codec with ID: " + VideoCodec);
+        var videoCodec = ffmpeg.avcodec_find_encoder(VideoCodec);
+        if (videoCodec == null) throw new EncoderException("Could not find codec with ID: " + VideoCodec);
         
-        _videoCodecContext = ffmpeg.avcodec_alloc_context3(_videoCodec);
+        _videoCodecContext = ffmpeg.avcodec_alloc_context3(videoCodec);
         if (_videoCodecContext == null) throw new EncoderException("Failed to allocate video codec context.");
         _videoCodecContext->width = conf.VideoOutputWidth;
         _videoCodecContext->height = conf.VideoOutputHeight;
@@ -66,7 +73,7 @@ public unsafe class Encoder : IDisposable
         ffmpeg.av_opt_set_double(_videoCodecContext->priv_data, "crf", conf.ConstantRateFactor, 0);
         ffmpeg.av_opt_set(_videoCodecContext->priv_data, "preset", conf.Preset, 0);
         
-        if (ffmpeg.avcodec_open2(_videoCodecContext, _videoCodec, null) < 0)
+        if (ffmpeg.avcodec_open2(_videoCodecContext, videoCodec, null) < 0)
             throw new EncoderException("Failed to open video codec.");
     }
 
@@ -75,7 +82,15 @@ public unsafe class Encoder : IDisposable
         if (!Running || Stopping) return;
         
         _videoDataQueue.Enqueue(data);
-        _videoDataSubmitted.Set();
+
+        try
+        {
+            _videoDataSubmitted.Release();
+        }
+        catch (SemaphoreFullException)
+        {
+            throw new EncoderException("Video data input queue was overrun.");
+        }
     }
     
     private void VideoCodecThread()
@@ -105,7 +120,7 @@ public unsafe class Encoder : IDisposable
         {
             while (true)
             {
-                _videoDataSubmitted.WaitOne();
+                _videoDataSubmitted.Wait();
 
                 if (_forcedStop) break;
 
@@ -183,7 +198,15 @@ public unsafe class Encoder : IDisposable
         if (_forcedStop) return;
         
         _packetQueue.Enqueue(packet);
-        _packetSubmitted.Set();
+
+        try
+        {
+            _packetSubmitted.Release();
+        }
+        catch (SemaphoreFullException)
+        {
+            throw new EncoderException("Muxer packet data queue was overrun.");
+        }
     }
 
     // TODO: Implement
