@@ -127,6 +127,13 @@ public unsafe class Encoder : IDisposable
         frame->width = VideoConfig.VideoOutputWidth;
         frame->height = VideoConfig.VideoOutputHeight;
         frame->format = (int)AVPixelFormat.AV_PIX_FMT_YUV420P;
+
+        if (VideoConfig.UseColorspaceInformation)
+        {
+            frame->color_primaries = VideoConfig.ColorPrimaries;
+            frame->color_trc = VideoConfig.ColorTrc;
+            frame->colorspace = VideoConfig.Colorspace;
+        }
                 
         if (ffmpeg.av_frame_get_buffer(frame, 0) < 0)
             throw new EncoderException("Failed to allocate buffers for video codec AVFrame.");
@@ -537,7 +544,20 @@ public unsafe class Encoder : IDisposable
         int Framerate,
         int KeyframeInterval,
         float ConstantRateFactor,
-        string Preset
+        string Preset,
+        
+        // Setting this to false makes the encoder ignore the next 3 entries, letting libav deal with it automatically.
+        bool UseColorspaceInformation = true,
+        
+        // Extra information about source colorspace. Defaults are good for sRGB color input.
+        // If you're getting RGB pixel data from somewhere, it's probably sRGB. This is a packed format where each
+        // color channel (red, green, blue) has only one byte of linear data to indicate its strength. This is *fine,*
+        // but colors can be much more precisely stored than that (and in fact, GPUs and shaders work with them in the
+        // form of floats), so sRGB color input needs to be converted to the format actually in use. This informs 
+        // the Encoder how to do so for the input data it will be receiving.
+        AVColorPrimaries ColorPrimaries = AVColorPrimaries.AVCOL_PRI_BT709,
+        AVColorTransferCharacteristic ColorTrc = AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1,
+        AVColorSpace Colorspace = AVColorSpace.AVCOL_SPC_BT709
     );
 
     // "origin" is a string indicating which thread faulted, and "cause" is the exception that caused the fault
