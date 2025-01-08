@@ -193,7 +193,8 @@ public unsafe class Encoder : IDisposable
                     }
                     
                     // No packet retrieved because encoder needs more input data, repeat outer loop to get next frame.
-                    if (ret == ffmpeg.EAGAIN) break;
+                    // FFmpeg.AutoGen has EAGAIN as positive, but the actual return code is negative; negate it.
+                    if (ret == -ffmpeg.EAGAIN) break;
                     
                     // Otherwise, some other error occurred.
                     throw new EncoderException("Error on attempting to retrieve encoded video packet.");
