@@ -254,37 +254,31 @@ public unsafe class Encoder : IDisposable
     }
 
     // TODO: Implement
-    public Task<bool> Start(string outputPath)
+    public void Start(string outputPath)
     {
         if (Faulted) 
             throw new EncoderException("Attempt to start faulted encoder.");
         if (Stopped)
             throw new EncoderException("Attempt to restart stopped encoder. You must create a new instance instead.");
         
-        return Task.Run(StartThread);
+        // Create video stream in output
+        _videoStream = ffmpeg.avformat_new_stream(_outputFormatContext, _videoCodec);
+        if (_videoStream == null) throw new EncoderException("Failed to create output video stream.");
 
-        bool StartThread()
-        {
-            // Create video stream in output
-            _videoStream = ffmpeg.avformat_new_stream(_outputFormatContext, _videoCodec);
-            if (_videoStream == null) throw new EncoderException("Failed to create output video stream.");
-            
-            _videoStream->time_base = _videoTimeBase;
-            _videoStream->avg_frame_rate = new AVRational { num = VideoConfig.Framerate, den = 1 };
+        _videoStream->time_base = _videoTimeBase;
+        _videoStream->avg_frame_rate = new AVRational { num = VideoConfig.Framerate, den = 1 };
 
-            _videoCodecThread = Task.Run(VideoCodecThread).ContinueWith(vthread =>
-                {
-                    Faulted = true;
-                    OnFault?.Invoke(this, "video codec", vthread.Exception, Stop());
-                }, 
-                TaskContinuationOptions.OnlyOnFaulted
-            );
-            
-            // TODO: Start muxer
+        _videoCodecThread = Task.Run(VideoCodecThread).ContinueWith(vthread =>
+            {
+                Faulted = true;
+                OnFault?.Invoke(this, "video codec", vthread.Exception, Stop());
+            },
+            TaskContinuationOptions.OnlyOnFaulted
+        );
 
-            Running = true;
-            return true;
-        }
+        // TODO: Start muxer
+
+        Running = true;
     }
     
     // TODO: Implement
