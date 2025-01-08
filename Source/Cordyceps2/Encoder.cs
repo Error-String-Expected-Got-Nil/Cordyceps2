@@ -2,8 +2,6 @@
 using System.Collections.Concurrent;
 using System.Threading;
 using FFmpeg.AutoGen;
-using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace Cordyceps2;
 
@@ -28,7 +26,7 @@ public unsafe class Encoder : IDisposable
     // exception because of it is a good thing.
     public const int QueueLimit = 1024;
     
-    private readonly ConcurrentQueue<Texture2D> _videoDataQueue = new();
+    private readonly ConcurrentQueue<byte[]> _videoDataQueue = new();
     private readonly ConcurrentQueue<Pointer<AVPacket>> _packetQueue = new();
 
     private readonly SemaphoreSlim _videoDataSubmitted = new(QueueLimit);
@@ -53,11 +51,11 @@ public unsafe class Encoder : IDisposable
         VideoConfig = conf;
         
         _frameFormatter = ffmpeg.sws_getContext(
-            conf.VideoInputWidth, conf.VideoInputHeight, AVPixelFormat.AV_PIX_FMT_RGBA,
+            conf.VideoInputWidth, conf.VideoInputHeight, conf.InputPixelFormat,
             conf.VideoOutputWidth, conf.VideoOutputHeight, AVPixelFormat.AV_PIX_FMT_YUV420P,
             ffmpeg.SWS_BILINEAR, null, null, null
         );
-        _inputLinesize = ffmpeg.av_image_get_linesize(AVPixelFormat.AV_PIX_FMT_RGBA, conf.VideoInputWidth, 0);
+        _inputLinesize = ffmpeg.av_image_get_linesize(conf.InputPixelFormat, conf.VideoInputWidth, 0);
         
         var videoCodec = ffmpeg.avcodec_find_encoder(VideoCodec);
         if (videoCodec == null) throw new EncoderException("Could not find codec with ID: " + VideoCodec);
@@ -77,7 +75,7 @@ public unsafe class Encoder : IDisposable
             throw new EncoderException("Failed to open video codec.");
     }
 
-    public void SubmitVideoData(Texture2D data)
+    public void SubmitVideoData(byte[] data)
     {
         if (!Running || Stopping) return;
         
@@ -95,7 +93,6 @@ public unsafe class Encoder : IDisposable
     
     private void VideoCodecThread()
     {
-        Texture2D current = null;
         AVPacket* packet = null;
         
         var inputData = new byte*[1];
@@ -124,7 +121,7 @@ public unsafe class Encoder : IDisposable
 
                 if (_forcedStop) break;
 
-                if (!_videoDataQueue.TryDequeue(out current))
+                if (!_videoDataQueue.TryDequeue(out var buffer))
                 {
                     if (Stopping) break;
                     continue;
@@ -132,10 +129,6 @@ public unsafe class Encoder : IDisposable
 
                 if (ffmpeg.av_frame_make_writable(frame) < 0)
                     throw new EncoderException("Failed to make video codec AVFrame writable.");
-
-                var buffer = current.GetRawTextureData();
-                Object.Destroy(current);
-                current = null;
 
                 fixed (byte* pixelData = buffer)
                 {
@@ -187,7 +180,6 @@ public unsafe class Encoder : IDisposable
         }
         finally
         {
-            if (current is not null) Object.Destroy(current);
             ffmpeg.av_frame_free(&frame);
             ffmpeg.av_packet_free(&packet);
         }
@@ -241,9 +233,7 @@ public unsafe class Encoder : IDisposable
         if (disposing)
         {
             _videoDataSubmitted.Dispose();
-
-            while (_videoDataQueue.TryDequeue(out var texture))
-                Object.Destroy(texture);
+            _packetSubmitted.Dispose();
         }
 
         while (_packetQueue.TryDequeue(out var packet))
@@ -268,6 +258,8 @@ public unsafe class Encoder : IDisposable
         int VideoInputHeight,
         int VideoOutputWidth,
         int VideoOutputHeight,
+        
+        AVPixelFormat InputPixelFormat,
         
         int Framerate,
         int KeyframeInterval,
