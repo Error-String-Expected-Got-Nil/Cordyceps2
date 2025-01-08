@@ -303,7 +303,7 @@ public unsafe class Encoder : IDisposable
             throw new EncoderException("Error trying to close AVIO output resource.");
     }
 
-    private void RescalePacketTimestamps(AVPacket* packet, AVRational from, AVRational to)
+    private static void RescalePacketTimestamps(AVPacket* packet, AVRational from, AVRational to)
     {
         packet->pts = ffmpeg.av_rescale_q_rnd(
             packet->pts, from, to,
@@ -322,12 +322,17 @@ public unsafe class Encoder : IDisposable
         if (Stopped)
             throw new EncoderException("Attempt to restart stopped encoder. You must create a new instance instead.");
         
-        // Create video stream in output
+        // Create video stream in output. This represents the portion of data in the output file that is the video data
+        // (rather than audio, subtitles, etc., if we happened to have those as well).
         _videoStream = ffmpeg.avformat_new_stream(_outputFormatContext, _videoCodec);
         if (_videoStream == null) throw new EncoderException("Failed to create output video stream.");
 
+        // All of these should be explicitly set to initialize the stream.
         _videoStream->time_base = _videoTimeBase;
         _videoStream->avg_frame_rate = new AVRational { num = VideoConfig.Framerate, den = 1 };
+        _videoStream->id = (int)_outputFormatContext->nb_streams - 1;
+        if (ffmpeg.avcodec_parameters_from_context(_videoStream->codecpar, _videoCodecContext) < 0)
+            throw new EncoderException("Failed to get video codec parameters.");
 
         _videoCodecThread = Task.Run(VideoCodecThread);
         _videoCodecThread.ContinueWith(vthread =>
