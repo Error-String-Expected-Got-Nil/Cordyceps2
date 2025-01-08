@@ -92,6 +92,7 @@
         <Compile Include="Encoder.cs" />
         <Compile Include="EncoderException.cs" />
         <Compile Include="InfoPanel.cs" />
+        <Compile Include="LibAvException.cs" />
         <Compile Include="Properties\AssemblyInfo.cs"/>
         <Compile Include="Recording.cs" />
         <Compile Include="TimeControl.cs" />
