@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Threading;
+using System.Threading.Tasks;
 using FFmpeg.AutoGen;
+// ReSharper disable BitwiseOperatorOnEnumWithoutFlags
 
 namespace Cordyceps2;
 
@@ -19,26 +21,25 @@ public unsafe class Encoder : IDisposable
 {
     public const AVCodecID VideoCodec = AVCodecID.AV_CODEC_ID_H264;
     
-    // Wait events for data-consuming threads are handled by a SemaphoreSlim, which must have a set upper limit on the
-    // maximum number of permitted releases. A "release" in this case indicates a data item in the queue waiting to be
-    // processed. In this context, the limit is fine, since the queue should only grow beyond a small size if data
-    // is being submitted faster than it is being consumed, which would be VERY BAD, and the encoder throwing an 
-    // exception because of it is a good thing.
-    public const int QueueLimit = 1024;
-    
     private readonly ConcurrentQueue<byte[]> _videoDataQueue = new();
     private readonly ConcurrentQueue<Pointer<AVPacket>> _packetQueue = new();
 
-    private readonly SemaphoreSlim _videoDataSubmitted = new(QueueLimit);
-    private readonly SemaphoreSlim _packetSubmitted = new(QueueLimit);
+    private readonly SemaphoreSlim _videoDataSubmitted = new(0);
+    private readonly SemaphoreSlim _packetSubmitted = new(0);
     
+    private readonly AVRational _videoTimeBase;
     private readonly SwsContext* _frameFormatter;
     private readonly int _inputLinesize;
+    private readonly AVCodec* _videoCodec;
     private readonly AVCodecContext* _videoCodecContext;
+    private readonly AVFormatContext* _outputFormatContext;
+
+    private AVStream* _videoStream; 
 
     private long _framecount;
     
     private bool _forcedStop;
+    private bool _codecsStopped;
     private bool _disposed;
     
     public bool Running { get; private set; }
@@ -57,38 +58,45 @@ public unsafe class Encoder : IDisposable
         );
         _inputLinesize = ffmpeg.av_image_get_linesize(conf.InputPixelFormat, conf.VideoInputWidth, 0);
         
-        var videoCodec = ffmpeg.avcodec_find_encoder(VideoCodec);
-        if (videoCodec == null) throw new EncoderException("Could not find codec with ID: " + VideoCodec);
+        _videoCodec = ffmpeg.avcodec_find_encoder(VideoCodec);
+        if (_videoCodec == null) throw new EncoderException("Could not find codec with ID: " + VideoCodec);
+
+        _videoTimeBase = new AVRational { num = 1, den = conf.Framerate };
         
-        _videoCodecContext = ffmpeg.avcodec_alloc_context3(videoCodec);
+        _videoCodecContext = ffmpeg.avcodec_alloc_context3(_videoCodec);
         if (_videoCodecContext == null) throw new EncoderException("Failed to allocate video codec context.");
         _videoCodecContext->width = conf.VideoOutputWidth;
         _videoCodecContext->height = conf.VideoOutputHeight;
-        _videoCodecContext->time_base = new AVRational { num = 1, den = conf.Framerate };
+        _videoCodecContext->time_base = _videoTimeBase;
         _videoCodecContext->pix_fmt = AVPixelFormat.AV_PIX_FMT_YUV420P;
         _videoCodecContext->gop_size = conf.KeyframeInterval;
         _videoCodecContext->bit_rate = 0; // Bitrate is determined by CRF
         ffmpeg.av_opt_set_double(_videoCodecContext->priv_data, "crf", conf.ConstantRateFactor, 0);
         ffmpeg.av_opt_set(_videoCodecContext->priv_data, "preset", conf.Preset, 0);
         
-        if (ffmpeg.avcodec_open2(_videoCodecContext, videoCodec, null) < 0)
+        if (ffmpeg.avcodec_open2(_videoCodecContext, _videoCodec, null) < 0)
             throw new EncoderException("Failed to open video codec.");
+
+        var outputFormat = ffmpeg.av_guess_format(null, "mp4", null);
+        if (outputFormat == null) throw new EncoderException("Could not get mp4 output format.");
+        
+        AVFormatContext* fmtctx = null;
+        ffmpeg.avformat_alloc_output_context2(&fmtctx, outputFormat, null, null);
+        if (fmtctx == null) throw new EncoderException("Failed to allocate output format context.");
+
+        _outputFormatContext = fmtctx;
     }
 
+    // Submit one frame of video data as a byte array. Assumed to be a continuous array of a non-planar, packed pixel
+    // format, such as RGBA. Does NOT check that the provided array is long enough to contain a full frame's worth of
+    // data! Make sure it has at least that much or more to avoid access violations. 
     public void SubmitVideoData(byte[] data)
     {
         if (!Running || Stopping) return;
         
         _videoDataQueue.Enqueue(data);
-
-        try
-        {
-            _videoDataSubmitted.Release();
-        }
-        catch (SemaphoreFullException)
-        {
-            throw new EncoderException("Video data input queue was overrun.");
-        }
+        
+        _videoDataSubmitted.Release();
     }
     
     private void VideoCodecThread()
@@ -165,6 +173,18 @@ public unsafe class Encoder : IDisposable
                     // Packet successfully received
                     if (ret == 0)
                     {
+                        // Have to rescale packet timestaps from video time base to stream time base. MINMAX flag makes
+                        // the rounding pass ignore the special AV_NOPTS_VALUE for timestamps. NEAR_INF flag is the
+                        // default round mode for av_rescale_q, the version of this function without options.
+                        packet->pts = ffmpeg.av_rescale_q_rnd(
+                            packet->pts, _videoTimeBase, _videoStream->time_base,
+                            AVRounding.AV_ROUND_NEAR_INF | AVRounding.AV_ROUND_PASS_MINMAX);
+                        packet->dts = ffmpeg.av_rescale_q_rnd(
+                            packet->dts, _videoTimeBase, _videoStream->time_base,
+                            AVRounding.AV_ROUND_NEAR_INF | AVRounding.AV_ROUND_PASS_MINMAX);
+                        packet->duration = ffmpeg.av_rescale_q(
+                            packet->duration, _videoTimeBase, _videoStream->time_base);
+                        
                         SubmitPacket(packet);
                         packet = null;
                         continue;
@@ -190,17 +210,49 @@ public unsafe class Encoder : IDisposable
         if (_forcedStop) return;
         
         _packetQueue.Enqueue(packet);
+        
+        _packetSubmitted.Release();
+    }
 
+    private void MuxerThread()
+    {
+        AVPacket* packet = null;
+        
         try
         {
-            _packetSubmitted.Release();
+            while (true)
+            {
+                _packetSubmitted.Wait();
+                
+                if (_forcedStop) break;
+
+                if (!_packetQueue.TryDequeue(out var packetRef))
+                {
+                    // TODO: Check on this, need to figure out exact procedure for stopping Encoder
+                    if (_codecsStopped) break;
+                    continue;
+                }
+
+                packet = packetRef;
+                
+                if (ffmpeg.av_interleaved_write_frame(_outputFormatContext, packet) < 0)
+                    throw new EncoderException("Error trying to write frame to output.");
+                
+                ffmpeg.av_packet_free(&packet);
+            }
         }
-        catch (SemaphoreFullException)
+        finally
         {
-            throw new EncoderException("Muxer packet data queue was overrun.");
+            ffmpeg.av_packet_free(&packet);
         }
     }
 
+    // TODO: Implement
+    public Task<bool> Start()
+    {
+        throw new NotImplementedException();
+    }
+    
     // TODO: Implement
     // Procedure something like: Set Stopping to true to stop taking input, signal codec and muxer threads one more
     // time so they clear their queue and see that they're finished.
@@ -210,11 +262,11 @@ public unsafe class Encoder : IDisposable
         throw new NotImplementedException();
     }
     
+    // TODO: Implement
     // Synchronous hard stop, makes all codec and muxer threads stop at the first opportunity, WITHOUT ensuring the
     // video file is properly saved. Should only be called if the Encoder is disposed witout being stopped first.
     private void ForceStop()
     {
-        // TODO: Implement
         throw new NotImplementedException();
     }
 
