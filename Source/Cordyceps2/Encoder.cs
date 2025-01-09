@@ -51,6 +51,7 @@ public unsafe class Encoder : IDisposable
     public bool Stopping { get; private set; }
     public bool Stopped { get; private set; }
     public bool Faulted { get; private set; }
+    public int MaxVideoFramesQueued { get; private set; }
 
     public readonly VideoSettings VideoConfig;
 
@@ -121,6 +122,7 @@ public unsafe class Encoder : IDisposable
         if (!Running || Stopping) return false;
         
         _videoDataQueue.Enqueue(data);
+        MaxVideoFramesQueued = Math.Max(MaxVideoFramesQueued, _videoDataQueue.Count);
         _videoDataSubmitted.Release();
 
         return true;
