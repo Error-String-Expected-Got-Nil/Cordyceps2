@@ -12,7 +12,7 @@ namespace Cordyceps2;
 // Usage: Constructor performs initial setup and configuration of codecs and muxer. Start() begins the codec and muxer
 // threads, also taking the path to the directory you want videos output to. Returns a Task<bool> which completes when
 // all threads have been started and the Encoder is ready to accept input data, or if something went wrong. Value will
-// be true if Encoder started successfull, false or faulted if it didn't.
+// be true if Encoder started successfully, false or faulted if it didn't.
 //
 // If an Encoder is stopped, it cannot be restarted. You must dispose it and instantiate a new Encoder to try again.
 
@@ -70,7 +70,7 @@ public unsafe class Encoder : IDisposable
         _inputLinesize = ffmpeg.av_image_get_linesize(conf.InputPixelFormat, conf.VideoInputWidth, 0);
 
         if (conf.UsePooledDataBuffers)
-            _videoDataBufferPool = new DataBufferPool(_inputLinesize * conf.VideoInputHeight);
+            _videoDataBufferPool = new DataBufferPool(_inputLinesize * conf.VideoInputHeight, conf.PoolDepth);
         
         _videoCodec = ffmpeg.avcodec_find_encoder(VideoCodec);
         if (_videoCodec == null) throw new EncoderException("Could not find codec with ID: " + VideoCodec);
@@ -103,9 +103,11 @@ public unsafe class Encoder : IDisposable
     
     // Get a buffer for frame data from a pool to avoid excessive memory allocation for raw video data frame arrays.
     // Throws an exception if this was not enabled in the video settings on instantiation of the Encoder.
+    // If a limit has been set on pool depth, will return null if too many buffers have already been released.
     public byte[] GetVideoDataBuffer() 
-        => _videoDataBufferPool?.Pop() 
-           ?? throw new EncoderException("Attempt to get a pooled video data buffer when not using pooled buffers.");
+        => (_videoDataBufferPool 
+            ?? throw new EncoderException("Attempt to get a pooled video data buffer when not using pooled buffers."))
+            .Pop();
     
     // Use this to return a pooled buffer without submitting it. Does nothing if not using pooled buffers.
     public void ReturnVideoDataBuffer(byte[] buffer) => _videoDataBufferPool?.Push(buffer);
@@ -573,6 +575,11 @@ public unsafe class Encoder : IDisposable
         // the whole lifetime of the Encoder, easing pressure on the garbage collector.
         bool UsePooledDataBuffers = true,
         
+        // Maximum number of buffers which may be released at any given time. If a buffer is requested when already at
+        // the limit, GetVideoDataBuffer will return null instead. User is responsible for waiting before asking again.
+        // Set to 0 to have no limit.
+        int PoolDepth = 0,
+        
         // Setting this to false makes the encoder ignore the next 3 entries, letting libav deal with it automatically.
         bool UseColorspaceInformation = true,
         
@@ -592,18 +599,20 @@ public unsafe class Encoder : IDisposable
     // to monitor when the Encoder finishes stopping.
     public delegate void OnFaultEvent(Encoder sender, string origin, AggregateException cause, Task stopTask);
 
-    private class DataBufferPool(int bufferSize)
+    private class DataBufferPool(int bufferSize, int depth)
     {
         private readonly ConcurrentBag<byte[]> _pool = [];
         
         private int _extantCount;
 
         public int BufferSize { get; private set; } = bufferSize;
+        public int Depth { get; private set; } = depth;
         public int ExtantCount => _extantCount;
         public int TotalCount => _extantCount + _pool.Count;
         
         public byte[] Pop()
         {
+            if (Depth != 0 && _extantCount >= Depth) return null;
             Interlocked.Increment(ref _extantCount);
             return _pool.TryTake(out var item) ? item : new byte[BufferSize];
         }
