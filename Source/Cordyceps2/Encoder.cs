@@ -591,7 +591,7 @@ public unsafe class Encoder : IDisposable
         // the Encoder how to do so for the input data it will be receiving.
         AVColorPrimaries ColorPrimaries = AVColorPrimaries.AVCOL_PRI_BT709,
         AVColorTransferCharacteristic ColorTrc = AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1,
-        AVColorSpace Colorspace = AVColorSpace.AVCOL_SPC_BT709
+        AVColorSpace Colorspace = AVColorSpace.AVCOL_SPC_RGB
     );
 
     // "origin" is a string indicating which thread faulted, and "cause" is the exception that caused the fault
