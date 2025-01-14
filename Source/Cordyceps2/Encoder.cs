@@ -151,6 +151,7 @@ public unsafe class Encoder : IDisposable
 
         if (VideoConfig.UseColorspaceInformation)
         {
+            frame->color_range = VideoConfig.ColorRange;
             frame->color_primaries = VideoConfig.ColorPrimaries;
             frame->color_trc = VideoConfig.ColorTrc;
             frame->colorspace = VideoConfig.Colorspace;
@@ -589,6 +590,7 @@ public unsafe class Encoder : IDisposable
         // but colors can be much more precisely stored than that (and in fact, GPUs and shaders work with them in the
         // form of floats), so sRGB color input needs to be converted to the format actually in use. This informs 
         // the Encoder how to do so for the input data it will be receiving.
+        AVColorRange ColorRange = AVColorRange.AVCOL_RANGE_JPEG,
         AVColorPrimaries ColorPrimaries = AVColorPrimaries.AVCOL_PRI_BT709,
         AVColorTransferCharacteristic ColorTrc = AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1,
         AVColorSpace Colorspace = AVColorSpace.AVCOL_SPC_RGB
