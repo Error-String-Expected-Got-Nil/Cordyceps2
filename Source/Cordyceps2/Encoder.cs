@@ -19,24 +19,32 @@ namespace Cordyceps2;
 public unsafe class Encoder : IDisposable
 {
     public const AVCodecID VideoCodec = AVCodecID.AV_CODEC_ID_H264;
+    public const AVCodecID AudioCodec = AVCodecID.AV_CODEC_ID_AAC;
     
     private readonly ConcurrentQueue<byte[]> _videoDataQueue = new();
+    private readonly ConcurrentQueue<byte[]> _audioDataQueue = new();
     private readonly ConcurrentQueue<Pointer<AVPacket>> _packetQueue = new();
 
     private readonly SemaphoreSlim _videoDataSubmitted = new(0);
     private readonly SemaphoreSlim _packetSubmitted = new(0);
 
     private readonly DataBufferPool _videoDataBufferPool;
+    private readonly DataBufferPool _audioDataBufferPool;
     
     private readonly AVRational _videoTimeBase;
+    private readonly AVRational _audioTimeBase;
     private readonly SwsContext* _frameFormatter;
     private readonly int _inputLinesize;
     private readonly AVCodec* _videoCodec;
+    private readonly AVCodec* _audioCodec;
     private readonly AVCodecContext* _videoCodecContext;
+    private readonly AVCodecContext* _audioCodecContext;
     private readonly AVFormatContext* _outputFormatContext;
 
     private AVStream* _videoStream;
+    private AVStream* _audioStream;
     private Task _videoCodecThread;
+    private Task _audioCodecThread;
     private Task _muxerThread;
     private Task _stopTask;
     
@@ -52,8 +60,10 @@ public unsafe class Encoder : IDisposable
     public bool Stopped { get; private set; }
     public bool Faulted { get; private set; }
     public int MaxVideoFramesQueued { get; private set; }
+    public bool HasAudio { get; private set; }
 
     public readonly VideoSettings VideoConfig;
+    public readonly AudioSettings AudioConfig;
 
     // Called when any of the processing threads in the Encoder stop due to an unhandled exception.
     public event OnFaultEvent OnFault;
@@ -99,6 +109,59 @@ public unsafe class Encoder : IDisposable
         if (fmtctx == null) throw new EncoderException("Failed to allocate output format context.");
 
         _outputFormatContext = fmtctx;
+    }
+
+    // Alternate form also including an audio track.
+    public Encoder(VideoSettings vconf, AudioSettings aconf) : this(vconf)
+    {
+        HasAudio = true;
+        AudioConfig = aconf;
+
+        _audioCodec = ffmpeg.avcodec_find_encoder(AudioCodec);
+        if (_audioCodec == null) throw new EncoderException("Could not find audio codec with ID: " + AudioCodec);
+
+        var supportedSampleRate = _audioCodec->supported_samplerates;
+        var foundSampleRate = false;
+        while (*supportedSampleRate != 0)
+        {
+            if (*supportedSampleRate == aconf.SampleRate)
+            {
+                foundSampleRate = true;
+                break;
+            }
+            
+            supportedSampleRate++;
+        }
+
+        if (!foundSampleRate) throw new EncoderException("Given sample rate was not supported by audio codec.");
+        
+        _audioTimeBase = new AVRational { num = 1, den = aconf.SampleRate };
+
+        _audioCodecContext = ffmpeg.avcodec_alloc_context3(_audioCodec);
+        if (_audioCodecContext == null) throw new EncoderException("Failed to allocate audio codec context.");
+
+        if (aconf.SampleFormat != AVSampleFormat.AV_SAMPLE_FMT_FLTP)
+            throw new NotImplementedException("Sample formats other than FLTP are currently unsupported.");
+
+        _audioCodecContext->bit_rate = aconf.Bitrate;
+        _audioCodecContext->time_base = _audioTimeBase;
+        _audioCodecContext->sample_rate = aconf.SampleRate;
+        _audioCodecContext->sample_fmt = aconf.SampleFormat;
+
+        var channelLayout = new AVChannelLayout();
+        ffmpeg.av_channel_layout_default(&channelLayout, aconf.Channels);
+        _audioCodecContext->ch_layout = channelLayout;
+
+        if (ffmpeg.avcodec_open2(_audioCodecContext, _audioCodec, null) < 0)
+            throw new EncoderException("Failed to open audio codec.");
+
+        if (!aconf.UsePooledDataBuffers) return;
+        
+        var framesize = _audioCodecContext->frame_size 
+                        * aconf.Channels
+                        * ffmpeg.av_get_bytes_per_sample(aconf.SampleFormat);
+        
+        _audioDataBufferPool = new DataBufferPool(framesize, aconf.PoolDepth);
     }
     
     // Get a buffer for frame data from a pool to avoid excessive memory allocation for raw video data frame arrays.
@@ -594,6 +657,25 @@ public unsafe class Encoder : IDisposable
         AVColorPrimaries ColorPrimaries = AVColorPrimaries.AVCOL_PRI_BT709,
         AVColorTransferCharacteristic ColorTrc = AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1,
         AVColorSpace Colorspace = AVColorSpace.AVCOL_SPC_RGB
+    );
+
+    public record struct AudioSettings(
+        // Input and output sample rate must be the same. You can design things such that they don't have to be, but
+        // this makes things easier for resampling.
+        int SampleRate,
+        int Channels,
+        
+        // TODO: Sample formats other than FLTP currently not supported.
+        AVSampleFormat SampleFormat,
+        
+        int Bitrate = 160000,
+            
+        // Same as pool options for video settings. Note that a pool depth of 0 is less bad for audio, since audio
+        // frames are much smaller than video frames. Also note that pools will be pre-sized to that of the required
+        // audio frame size, and should be filled completely unless they are the last audio frame, in which case
+        // leftover space should be zeroed out.
+        bool UsePooledDataBuffers = true,
+        int PoolDepth = 0
     );
 
     // "origin" is a string indicating which thread faulted, and "cause" is the exception that caused the fault
