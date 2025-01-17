@@ -278,12 +278,12 @@ public unsafe class Encoder : IDisposable
             frame->color_trc = VideoConfig.ColorTrc;
             frame->colorspace = VideoConfig.Colorspace;
         }
-                
-        if (ffmpeg.av_frame_get_buffer(frame, 0) < 0)
-            throw new EncoderException("Failed to allocate buffers for video codec AVFrame.");
         
         try
         {
+            if (ffmpeg.av_frame_get_buffer(frame, 0) < 0)
+                throw new EncoderException("Failed to allocate buffers for video codec AVFrame.");
+            
             while (true)
             {
                 _videoDataSubmitted.Wait();
@@ -409,12 +409,12 @@ public unsafe class Encoder : IDisposable
         frame->nb_samples = SamplesPerFrame;
         frame->format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLTP;
         frame->ch_layout = _audioCodecContext->ch_layout;
-
-        if (ffmpeg.av_frame_get_buffer(frame, 0) < 0)
-            throw new EncoderException("Failed to allocate buffers for audio codec AVFrame.");
         
         try
         {
+            if (ffmpeg.av_frame_get_buffer(frame, 0) < 0)
+                throw new EncoderException("Failed to allocate buffers for audio codec AVFrame.");
+            
             while (true)
             {
                 _audioDataSubmitted.Wait();
