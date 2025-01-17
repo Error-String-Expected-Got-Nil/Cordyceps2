@@ -53,6 +53,7 @@ public unsafe class Encoder : IDisposable
     private Task _stopTask;
     
     private long _framecount;
+    private long _encodedSamples;
     
     private bool _hardStop;
     private bool _forceStop;
@@ -335,9 +336,6 @@ public unsafe class Encoder : IDisposable
                     // Packet successfully received
                     if (ret == 0)
                     {
-                        // Have to rescale packet timestaps from video time base to stream time base. MINMAX flag makes
-                        // the rounding pass ignore the special AV_NOPTS_VALUE for timestamps. NEAR_INF flag is the
-                        // default round mode for av_rescale_q, the version of this function without options.
                         RescalePacketTimestamps(packet, _videoTimeBase, _videoStream->time_base);
                         SubmitPacket(packet);
                         packet = null;
@@ -390,6 +388,127 @@ public unsafe class Encoder : IDisposable
                 }
 
                 throw new EncoderException("Error receiving packet during video codec draining.");
+            }
+        }
+        finally
+        {
+            ffmpeg.av_packet_free(&packet);
+        }
+    }
+
+    private void AudioCodecThread()
+    {
+        AVPacket* packet = null;
+
+        var inputData = stackalloc byte*[_samplePlaneIndicies.Length];
+        
+        var frame = ffmpeg.av_frame_alloc();
+        if (frame == null) throw new EncoderException("Failed to allocate audio codec AVFrame.");
+
+        frame->nb_samples = _sampleCount;
+        frame->format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLTP;
+        frame->ch_layout = _audioCodecContext->ch_layout;
+
+        if (ffmpeg.av_frame_get_buffer(frame, 0) < 0)
+            throw new EncoderException("Failed to allocate buffers for audio codec AVFrame.");
+        
+        try
+        {
+            while (true)
+            {
+                _audioDataSubmitted.Wait();
+
+                if (_hardStop) break;
+
+                if (!_audioDataQueue.TryDequeue(out var buffer))
+                {
+                    if (Stopping) break;
+                    continue;
+                }
+
+                if (ffmpeg.av_frame_make_writable(frame) < 0)
+                    throw new EncoderException("Failed to make audio codec AVFrame writable.");
+
+                fixed (byte* sampleData = buffer)
+                {
+                    for (var i = 0; i < _samplePlaneIndicies.Length; i++)
+                        inputData[i] = sampleData + _samplePlaneIndicies[i];
+
+                    // Number of output samples should always be equal to number of input samples when the sample rate
+                    // is the same for input and output; this is why that was required in the audio config. Not having
+                    // to deal with buffering extra samples makes things significantly easier.
+                    // This weird cast of (byte**)&frame->data is due to how FFmpegAutoGen stores the data field of
+                    // AVFrames; they have a special type for it. In raw C you would just do frame->data.
+                    ffmpeg.swr_convert(_sampleFormatter, 
+                        (byte**)&frame->data, _sampleCount, 
+                        &inputData[0], _sampleCount);
+                }
+                
+                if (AudioConfig.UsePooledDataBuffers)
+                    _audioDataBufferPool.Push(buffer);
+
+                frame->pts = _encodedSamples;
+                _encodedSamples += _sampleCount;
+
+                if (ffmpeg.avcodec_send_frame(_audioCodecContext, frame) > 0)
+                    throw new EncoderException("Error on attempting to encode audio frame.");
+
+                while (true)
+                {
+                    if (packet == null) packet = ffmpeg.av_packet_alloc();
+                    if (packet == null) throw new EncoderException("Failed to allocate audio codec output packet.");
+
+                    var ret = ffmpeg.avcodec_receive_packet(_audioCodecContext, packet);
+                    
+                    if (ret == 0)
+                    {
+                        RescalePacketTimestamps(packet, _audioTimeBase, _audioStream->time_base);
+                        SubmitPacket(packet);
+                        packet = null;
+                        continue;
+                    }
+                    
+                    if (ret == -ffmpeg.EAGAIN) break;
+                    
+                    throw new EncoderException("Error on attempting to retrieve encoded audio packet.");
+                }
+            }
+        }
+        finally
+        {
+            ffmpeg.av_frame_free(&frame);
+            ffmpeg.av_packet_free(&packet);
+        }
+    }
+
+    private void DrainAudioCodec()
+    {
+        AVPacket* packet = null;
+
+        try
+        {
+            if (ffmpeg.avcodec_send_frame(_audioCodecContext, null) < 0)
+                throw new EncoderException("Failed to send flush packet to audio codec.");
+
+            while (true)
+            {
+                packet = ffmpeg.av_packet_alloc();
+                if (packet == null) throw new EncoderException("Failed to allocate audio codec output packet.");
+
+                var ret = ffmpeg.avcodec_receive_packet(_audioCodecContext, packet);
+
+                // No more packets buffered, draining is finished.
+                if (ret == ffmpeg.AVERROR_EOF) break;
+
+                if (ret == 0)
+                {
+                    RescalePacketTimestamps(packet, _audioTimeBase, _audioStream->time_base);
+                    SubmitPacket(packet);
+                    packet = null;
+                    continue;
+                }
+
+                throw new EncoderException("Error receiving packet during audio codec draining.");
             }
         }
         finally
@@ -456,6 +575,9 @@ public unsafe class Encoder : IDisposable
             throw new EncoderException("Error trying to close AVIO output resource.");
     }
 
+    // Have to rescale packet timestaps from video/audio time base to stream time base. MINMAX flag makes
+    // the rounding pass ignore the special AV_NOPTS_VALUE for timestamps. NEAR_INF flag is the
+    // default round mode for av_rescale_q, the version of this function without options.
     private static void RescalePacketTimestamps(AVPacket* packet, AVRational from, AVRational to)
     {
         packet->pts = ffmpeg.av_rescale_q_rnd(
@@ -495,6 +617,26 @@ public unsafe class Encoder : IDisposable
             },
             TaskContinuationOptions.OnlyOnFaulted
         );
+
+        if (HasAudio)
+        {
+            _audioStream = ffmpeg.avformat_new_stream(_outputFormatContext, _audioCodec);
+            if (_audioStream == null) throw new EncoderException("Failed to create output audio stream.");
+
+            _audioStream->time_base = _audioTimeBase;
+            _audioStream->id = (int)_outputFormatContext->nb_streams - 1;
+            if (ffmpeg.avcodec_parameters_from_context(_audioStream->codecpar, _audioCodecContext) < 0)
+                throw new EncoderException("Failed to get audio codec parameters.");
+
+            _audioCodecThread = Task.Run(AudioCodecThread);
+            _audioCodecThread.ContinueWith(athread =>
+                {
+                    Faulted = true;
+                    OnFault?.Invoke(this, "audio codec", athread.Exception, Stop());
+                },
+                TaskContinuationOptions.OnlyOnFaulted
+            );
+        }
         
         // Open the AVIO context for the muxer. This was allocated by the output context when it was created, and put
         // into the 'pb' field, so we grab it from there. Have to make it a local so we can take its address.
@@ -535,13 +677,23 @@ public unsafe class Encoder : IDisposable
         
         void StopProcedure()
         {
-            // Release an extra permit so that the video codec thread dequeues nothing when it runs out, allowing it to
-            // see that it's stopping and break.
+            // Release an extra permit so that the codecs thread dequeue nothing when they runs out, allowing them to
+            // see that they're stopping and break.
             _videoDataSubmitted.Release();
             WaitTaskCatch(_videoCodecThread);
 
-            // Empty anything remaining in the video codec, unless hard stop was triggered.
-            if (!_hardStop) DrainVideoCodec();
+            if (HasAudio)
+            {
+                _audioDataSubmitted.Release();
+                WaitTaskCatch(_audioCodecThread);
+            }
+
+            // Empty anything remaining in the codecs, unless hard stop was triggered.
+            if (!_hardStop)
+            {
+                DrainVideoCodec();
+                if (HasAudio) DrainAudioCodec();
+            }
 
             // Codecs are finished processing, notify the muxer in the same way as the codecs.
             _codecsStopped = true;
@@ -583,6 +735,12 @@ public unsafe class Encoder : IDisposable
             _videoDataSubmitted.Release();
             WaitTaskCatch(_videoCodecThread);
 
+            if (HasAudio)
+            {
+                _audioDataSubmitted.Release();
+                WaitTaskCatch(_audioCodecThread);
+            }
+
             _packetSubmitted.Release();
             WaitTaskCatch(_muxerThread);
             
@@ -614,6 +772,12 @@ public unsafe class Encoder : IDisposable
 
         _videoDataSubmitted.Release();
         WaitTaskCatch(_videoCodecThread);
+        
+        if (HasAudio)
+        {
+            _audioDataSubmitted.Release();
+            WaitTaskCatch(_audioCodecThread);
+        }
 
         _packetSubmitted.Release();
         WaitTaskCatch(_muxerThread);
