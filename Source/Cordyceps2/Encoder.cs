@@ -10,9 +10,9 @@ namespace Cordyceps2;
 // This class is blanket unsafe since it's dealing with unmanaged libav data everywhere.
 //
 // Usage: Constructor performs initial setup and configuration of codecs and muxer. Start() begins the codec and muxer
-// threads, also taking the path to the directory you want videos output to. Returns a Task<bool> which completes when
-// all threads have been started and the Encoder is ready to accept input data, or if something went wrong. Value will
-// be true if Encoder started successfully, false or faulted if it didn't.
+// threads, also taking the path to the directory you want videos output to. Raw video/audio data may then be submitted
+// via their respective functions, one audio/video frame at a time. It is recommended you use the pooled data buffers
+// functionality to get the buffer arrays you fill with data, to avoid allocating too many large arrays.
 //
 // If an Encoder is stopped, it cannot be restarted. You must dispose it and instantiate a new Encoder to try again.
 
