@@ -26,6 +26,7 @@ public unsafe class Encoder : IDisposable
     private readonly ConcurrentQueue<Pointer<AVPacket>> _packetQueue = new();
 
     private readonly SemaphoreSlim _videoDataSubmitted = new(0);
+    private readonly SemaphoreSlim _audioDataSubmitted = new(0);
     private readonly SemaphoreSlim _packetSubmitted = new(0);
 
     private readonly DataBufferPool _videoDataBufferPool;
@@ -34,7 +35,10 @@ public unsafe class Encoder : IDisposable
     private readonly AVRational _videoTimeBase;
     private readonly AVRational _audioTimeBase;
     private readonly SwsContext* _frameFormatter;
+    private readonly SwrContext* _sampleFormatter;
     private readonly int _inputLinesize;
+    private readonly int _sampleCount;
+    private readonly int[] _samplePlaneIndicies;
     private readonly AVCodec* _videoCodec;
     private readonly AVCodec* _audioCodec;
     private readonly AVCodecContext* _videoCodecContext;
@@ -60,10 +64,19 @@ public unsafe class Encoder : IDisposable
     public bool Stopped { get; private set; }
     public bool Faulted { get; private set; }
     public int MaxVideoFramesQueued { get; private set; }
+    public int MaxAudioFramesQueued { get; private set; }
     public bool HasAudio { get; private set; }
 
     public readonly VideoSettings VideoConfig;
     public readonly AudioSettings AudioConfig;
+    
+    // Video frames are an intuitive concept, audio frames generally less so. In short, an audio frame is a sequence of
+    // audio samples that cannot be encoded or decoded independently, a video frame is the same but with pixels. The
+    // size of an audio frame is more or less arbitrary, and some encoders only support a particular set of sizes for
+    // audio frames. In the case of the MP4 format's AAC encoder, this is 1024. This field contains the number of bytes
+    // in an audio frame for the encoder, and is provided so you know how to size your buffers if you are not utilizing
+    // pooled data buffers for audio frames.
+    public readonly int AudioFrameSize;
 
     // Called when any of the processing threads in the Encoder stop due to an unhandled exception.
     public event OnFaultEvent OnFault;
@@ -71,6 +84,10 @@ public unsafe class Encoder : IDisposable
     public Encoder(VideoSettings conf)
     {
         VideoConfig = conf;
+
+        if (ffmpeg.av_pix_fmt_count_planes(conf.InputPixelFormat) > 1)
+            throw new NotImplementedException("Encoder currently does not support input pixel formats with more than " +
+                                              "one data plane (i.e. you must use a packed format like RGB24 or RGBA).");
         
         _frameFormatter = ffmpeg.sws_getContext(
             conf.VideoInputWidth, conf.VideoInputHeight, conf.InputPixelFormat,
@@ -140,13 +157,10 @@ public unsafe class Encoder : IDisposable
         _audioCodecContext = ffmpeg.avcodec_alloc_context3(_audioCodec);
         if (_audioCodecContext == null) throw new EncoderException("Failed to allocate audio codec context.");
 
-        if (aconf.SampleFormat != AVSampleFormat.AV_SAMPLE_FMT_FLTP)
-            throw new NotImplementedException("Sample formats other than FLTP are currently unsupported.");
-
         _audioCodecContext->bit_rate = aconf.Bitrate;
         _audioCodecContext->time_base = _audioTimeBase;
         _audioCodecContext->sample_rate = aconf.SampleRate;
-        _audioCodecContext->sample_fmt = aconf.SampleFormat;
+        _audioCodecContext->sample_fmt = AVSampleFormat.AV_SAMPLE_FMT_FLTP;
 
         var channelLayout = new AVChannelLayout();
         ffmpeg.av_channel_layout_default(&channelLayout, aconf.Channels);
@@ -155,13 +169,34 @@ public unsafe class Encoder : IDisposable
         if (ffmpeg.avcodec_open2(_audioCodecContext, _audioCodec, null) < 0)
             throw new EncoderException("Failed to open audio codec.");
 
+        SwrContext* swrctx = null;
+        if (ffmpeg.swr_alloc_set_opts2(&swrctx, &channelLayout, AVSampleFormat.AV_SAMPLE_FMT_FLTP, 
+                aconf.SampleRate, &channelLayout, aconf.SampleFormat, aconf.SampleRate, 
+                0, null) < 0)
+            throw new EncoderException("Failed to create SwrContext.");
+        if (ffmpeg.swr_init(swrctx) < 0)
+            throw new EncoderException("Failed to initialize SwrContext.");
+        _sampleFormatter = swrctx;
+
+        _sampleCount = _audioCodecContext->frame_size;
+        AudioFrameSize = _sampleCount
+                         * aconf.Channels
+                         * ffmpeg.av_get_bytes_per_sample(aconf.SampleFormat);
+
+        // Determine what indicies of the audio sample data buffer are the start of each plane in the buffer. This is
+        // needed later in order to properly pass pointers to these planes when resampling with swr_convert().
+        if (ffmpeg.av_sample_fmt_is_planar(aconf.SampleFormat) == 1 || aconf.Channels == 1)
+        {
+            _samplePlaneIndicies = new int[aconf.Channels];
+            var indexIncrement = AudioFrameSize / aconf.Channels;
+            for (var i = 0; i < aconf.Channels; i++)
+                _samplePlaneIndicies[i] = indexIncrement * i;
+        }
+        else
+            _samplePlaneIndicies = [0];
+        
         if (!aconf.UsePooledDataBuffers) return;
-        
-        var framesize = _audioCodecContext->frame_size 
-                        * aconf.Channels
-                        * ffmpeg.av_get_bytes_per_sample(aconf.SampleFormat);
-        
-        _audioDataBufferPool = new DataBufferPool(framesize, aconf.PoolDepth);
+        _audioDataBufferPool = new DataBufferPool(AudioFrameSize, aconf.PoolDepth);
     }
     
     // Get a buffer for frame data from a pool to avoid excessive memory allocation for raw video data frame arrays.
@@ -189,6 +224,28 @@ public unsafe class Encoder : IDisposable
         _videoDataQueue.Enqueue(data);
         MaxVideoFramesQueued = Math.Max(MaxVideoFramesQueued, _videoDataQueue.Count);
         _videoDataSubmitted.Release();
+
+        return true;
+    }
+
+    // Same as above methods, but for audio data.
+    public byte[] GetAudioDataBuffer()
+        => (_audioDataBufferPool
+            ?? throw new EncoderException("Attempt to get a pooled audio data buffer when not using pooled buffers."))
+            .Pop();
+
+    public void ReturnAudioDataBuffer(byte[] buffer) => _audioDataBufferPool?.Push(buffer);
+
+    public bool SubmitAudioData(byte[] data)
+    {
+        if (!HasAudio) throw new EncoderException("Attempt to submit audio data to encoder without audio track.");
+        if (Faulted) throw new EncoderException("Attempt to submit audio data to faulted encoder.");
+        if (Stopped) throw new EncoderException("Attempt to submit audio data to stopped encoder.");
+        if (!Running || Stopping) return false;
+        
+        _audioDataQueue.Enqueue(data);
+        MaxAudioFramesQueued = Math.Max(MaxAudioFramesQueued, _audioDataQueue.Count);
+        _audioDataSubmitted.Release();
 
         return true;
     }
@@ -599,6 +656,7 @@ public unsafe class Encoder : IDisposable
         if (disposing)
         {
             _videoDataSubmitted.Dispose();
+            _audioDataSubmitted.Dispose();
             _packetSubmitted.Dispose();
         }
 
@@ -611,8 +669,13 @@ public unsafe class Encoder : IDisposable
         ffmpeg.sws_freeContext(_frameFormatter);
 
         var vctx = _videoCodecContext;
-        
         ffmpeg.avcodec_free_context(&vctx);
+
+        if (HasAudio)
+        {
+            var actx = _audioCodecContext;
+            ffmpeg.avcodec_free_context(&actx);
+        }
         
         ffmpeg.avformat_free_context(_outputFormatContext);
         
@@ -664,8 +727,6 @@ public unsafe class Encoder : IDisposable
         // this makes things easier for resampling.
         int SampleRate,
         int Channels,
-        
-        // TODO: Sample formats other than FLTP currently not supported.
         AVSampleFormat SampleFormat,
         
         int Bitrate = 160000,
@@ -673,7 +734,8 @@ public unsafe class Encoder : IDisposable
         // Same as pool options for video settings. Note that a pool depth of 0 is less bad for audio, since audio
         // frames are much smaller than video frames. Also note that pools will be pre-sized to that of the required
         // audio frame size, and should be filled completely unless they are the last audio frame, in which case
-        // leftover space should be zeroed out.
+        // leftover space should be zeroed out. If not using pools, same applies: MAKE SURE your audio buffers are the
+        // size of an audio frame! Use the AudioFrameSize property to check this.
         bool UsePooledDataBuffers = true,
         int PoolDepth = 0
     );
