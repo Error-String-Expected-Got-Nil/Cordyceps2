@@ -37,7 +37,6 @@ public unsafe class Encoder : IDisposable
     private readonly SwsContext* _frameFormatter;
     private readonly SwrContext* _sampleFormatter;
     private readonly int _inputLinesize;
-    private readonly int _sampleCount;
     private readonly int[] _samplePlaneIndicies;
     private readonly AVCodec* _videoCodec;
     private readonly AVCodec* _audioCodec;
@@ -53,7 +52,7 @@ public unsafe class Encoder : IDisposable
     private Task _stopTask;
     
     private long _framecount;
-    private long _encodedSamples;
+    private long _samplecount;
     
     private bool _hardStop;
     private bool _forceStop;
@@ -78,6 +77,8 @@ public unsafe class Encoder : IDisposable
     // in an audio frame for the encoder, and is provided so you know how to size your buffers if you are not utilizing
     // pooled data buffers for audio frames.
     public readonly int AudioFrameSize;
+    // Number of audio samples per audio frame.
+    public readonly int SamplesPerFrame;
 
     // Called when any of the processing threads in the Encoder stop due to an unhandled exception.
     public event OnFaultEvent OnFault;
@@ -179,8 +180,8 @@ public unsafe class Encoder : IDisposable
             throw new EncoderException("Failed to initialize SwrContext.");
         _sampleFormatter = swrctx;
 
-        _sampleCount = _audioCodecContext->frame_size;
-        AudioFrameSize = _sampleCount
+        SamplesPerFrame = _audioCodecContext->frame_size;
+        AudioFrameSize = SamplesPerFrame
                          * aconf.Channels
                          * ffmpeg.av_get_bytes_per_sample(aconf.SampleFormat);
 
@@ -405,7 +406,7 @@ public unsafe class Encoder : IDisposable
         var frame = ffmpeg.av_frame_alloc();
         if (frame == null) throw new EncoderException("Failed to allocate audio codec AVFrame.");
 
-        frame->nb_samples = _sampleCount;
+        frame->nb_samples = SamplesPerFrame;
         frame->format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLTP;
         frame->ch_layout = _audioCodecContext->ch_layout;
 
@@ -440,15 +441,15 @@ public unsafe class Encoder : IDisposable
                     // This weird cast of (byte**)&frame->data is due to how FFmpegAutoGen stores the data field of
                     // AVFrames; they have a special type for it. In raw C you would just do frame->data.
                     ffmpeg.swr_convert(_sampleFormatter, 
-                        (byte**)&frame->data, _sampleCount, 
-                        &inputData[0], _sampleCount);
+                        (byte**)&frame->data, SamplesPerFrame, 
+                        &inputData[0], SamplesPerFrame);
                 }
                 
                 if (AudioConfig.UsePooledDataBuffers)
                     _audioDataBufferPool.Push(buffer);
 
-                frame->pts = _encodedSamples;
-                _encodedSamples += _sampleCount;
+                frame->pts = _samplecount;
+                _samplecount += SamplesPerFrame;
 
                 if (ffmpeg.avcodec_send_frame(_audioCodecContext, frame) > 0)
                     throw new EncoderException("Error on attempting to encode audio frame.");
