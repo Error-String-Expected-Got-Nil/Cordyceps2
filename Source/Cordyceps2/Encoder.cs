@@ -46,6 +46,8 @@ public unsafe class Encoder : IDisposable
 
     private AVStream* _videoStream;
     private AVStream* _audioStream;
+    private int _videoStreamIndex;
+    private int _audioStreamIndex;
     private Task _videoCodecThread;
     private Task _audioCodecThread;
     private Task _muxerThread;
@@ -65,10 +67,10 @@ public unsafe class Encoder : IDisposable
     public bool Faulted { get; private set; }
     public int MaxVideoFramesQueued { get; private set; }
     public int MaxAudioFramesQueued { get; private set; }
-    public bool HasAudio { get; private set; }
 
     public readonly VideoSettings VideoConfig;
     public readonly AudioSettings AudioConfig;
+    public readonly bool HasAudio;
     
     // Video frames are an intuitive concept, audio frames generally less so. In short, an audio frame is a sequence of
     // audio samples that cannot be encoded or decoded independently, a video frame is the same but with pixels. The
@@ -85,6 +87,9 @@ public unsafe class Encoder : IDisposable
     
     public Encoder(VideoSettings conf)
     {
+        if (Environment.Is64BitProcess)
+            throw new EncoderException("Encoder currently only supports being run in a 32-bit process.");
+        
         VideoConfig = conf;
 
         if (ffmpeg.av_pix_fmt_count_planes(conf.InputPixelFormat) > 1)
@@ -267,22 +272,25 @@ public unsafe class Encoder : IDisposable
         var frame = ffmpeg.av_frame_alloc();
         if (frame == null) throw new EncoderException("Failed to allocate video codec AVFrame.");
 
-        frame->width = VideoConfig.VideoOutputWidth;
-        frame->height = VideoConfig.VideoOutputHeight;
-        frame->format = (int)AVPixelFormat.AV_PIX_FMT_YUV420P;
+        // See definition of AVFrame32 for reasoning as to why this pointer cast is performed.
+        var frame32 = (AVFrame32*)frame;
+        
+        frame32->width = VideoConfig.VideoOutputWidth;
+        frame32->height = VideoConfig.VideoOutputHeight;
+        frame32->format = (int)AVPixelFormat.AV_PIX_FMT_YUV420P;
 
         if (VideoConfig.UseColorspaceInformation)
         {
-            frame->color_range = VideoConfig.ColorRange;
-            frame->color_primaries = VideoConfig.ColorPrimaries;
-            frame->color_trc = VideoConfig.ColorTrc;
-            frame->colorspace = VideoConfig.Colorspace;
+            frame32->color_range = VideoConfig.ColorRange;
+            frame32->color_primaries = VideoConfig.ColorPrimaries;
+            frame32->color_trc = VideoConfig.ColorTrc;
+            frame32->colorspace = VideoConfig.Colorspace;
         }
         
         try
         {
             if (ffmpeg.av_frame_get_buffer(frame, 0) < 0)
-                throw new EncoderException("Failed to allocate buffers for video codec AVFrame.");
+                throw new EncoderException("Failed to get buffers for video codec AVFrame.");
             
             while (true)
             {
@@ -338,6 +346,7 @@ public unsafe class Encoder : IDisposable
                     if (ret == 0)
                     {
                         RescalePacketTimestamps(packet, _videoTimeBase, _videoStream->time_base);
+                        packet->stream_index = _videoStreamIndex;
                         SubmitPacket(packet);
                         packet = null;
                         continue;
@@ -383,6 +392,7 @@ public unsafe class Encoder : IDisposable
                 if (ret == 0)
                 {
                     RescalePacketTimestamps(packet, _videoTimeBase, _videoStream->time_base);
+                    packet->stream_index = _videoStreamIndex;
                     SubmitPacket(packet);
                     packet = null;
                     continue;
@@ -405,15 +415,18 @@ public unsafe class Encoder : IDisposable
         
         var frame = ffmpeg.av_frame_alloc();
         if (frame == null) throw new EncoderException("Failed to allocate audio codec AVFrame.");
-
-        frame->nb_samples = SamplesPerFrame;
-        frame->format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLTP;
-        frame->ch_layout = _audioCodecContext->ch_layout;
+        
+        // See definition of AVFrame32 for reasoning as to why this pointer cast is performed.
+        var frame32 = (AVFrame32*)frame;
+        
+        frame32->nb_samples = SamplesPerFrame;
+        frame32->format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLTP;
+        frame32->ch_layout = _audioCodecContext->ch_layout;
         
         try
         {
             if (ffmpeg.av_frame_get_buffer(frame, 0) < 0)
-                throw new EncoderException("Failed to allocate buffers for audio codec AVFrame.");
+                throw new EncoderException("Failed to get buffers for audio codec AVFrame.");
             
             while (true)
             {
@@ -451,7 +464,7 @@ public unsafe class Encoder : IDisposable
                 frame->pts = _samplecount;
                 _samplecount += SamplesPerFrame;
 
-                if (ffmpeg.avcodec_send_frame(_audioCodecContext, frame) > 0)
+                if (ffmpeg.avcodec_send_frame(_audioCodecContext, frame) < 0)
                     throw new EncoderException("Error on attempting to encode audio frame.");
 
                 while (true)
@@ -464,6 +477,7 @@ public unsafe class Encoder : IDisposable
                     if (ret == 0)
                     {
                         RescalePacketTimestamps(packet, _audioTimeBase, _audioStream->time_base);
+                        packet->stream_index = _audioStreamIndex;
                         SubmitPacket(packet);
                         packet = null;
                         continue;
@@ -504,6 +518,7 @@ public unsafe class Encoder : IDisposable
                 if (ret == 0)
                 {
                     RescalePacketTimestamps(packet, _audioTimeBase, _audioStream->time_base);
+                    packet->stream_index = _audioStreamIndex;
                     SubmitPacket(packet);
                     packet = null;
                     continue;
@@ -607,6 +622,7 @@ public unsafe class Encoder : IDisposable
         _videoStream->time_base = _videoTimeBase;
         _videoStream->avg_frame_rate = new AVRational { num = VideoConfig.Framerate, den = 1 };
         _videoStream->id = (int)_outputFormatContext->nb_streams - 1;
+        _videoStreamIndex = _videoStream->id;
         if (ffmpeg.avcodec_parameters_from_context(_videoStream->codecpar, _videoCodecContext) < 0)
             throw new EncoderException("Failed to get video codec parameters.");
 
@@ -626,6 +642,7 @@ public unsafe class Encoder : IDisposable
 
             _audioStream->time_base = _audioTimeBase;
             _audioStream->id = (int)_outputFormatContext->nb_streams - 1;
+            _audioStreamIndex = _audioStream->id;
             if (ffmpeg.avcodec_parameters_from_context(_audioStream->codecpar, _audioCodecContext) < 0)
                 throw new EncoderException("Failed to get audio codec parameters.");
 
@@ -949,6 +966,65 @@ public unsafe class Encoder : IDisposable
         public static implicit operator T*(Pointer<T> ptr) => ptr.Value;
         public static implicit operator Pointer<T>(T* ptr) => new(ptr);
     }
+    
+    // Alternate version of the AVFrame struct from FFmpeg.AutoGen which has the type of the 'crop_*' fields changed
+    // from ulong to uint. This is necessary when using 32-bit/x86 FFmpeg bindings, as these fields are natively typed
+    // as 'size_t', which is 4 bytes for 32-bit, and 8 bytes for 64-bit.
+    // It took me far, far too long to figure this out.
+    // ReSharper disable InconsistentNaming
+    // ReSharper disable NotAccessedField.Local
+#pragma warning disable CS0649 // Field is never assigned to, and will always have its default value
+    private struct AVFrame32
+    {
+        public byte_ptrArray8 data;
+        public int_array8 linesize;
+        public byte** extended_data;
+        public int width;
+        public int height;
+        public int nb_samples;
+        public int format;
+        public int key_frame;
+        public AVPictureType pict_type;
+        public AVRational sample_aspect_ratio;
+        public long pts;
+        public long pkt_dts;
+        public AVRational time_base;
+        public int quality;
+        public void* opaque;
+        public int repeat_pict;
+        public int interlaced_frame;
+        public int top_field_first;
+        public int palette_has_changed;
+        public int sample_rate;
+        public AVBufferRef_ptrArray8 buf;
+        public AVBufferRef** extended_buf;
+        public int nb_extended_buf;
+        public AVFrameSideData** side_data;
+        public int nb_side_data;
+        public int flags;
+        public AVColorRange color_range;
+        public AVColorPrimaries color_primaries;
+        public AVColorTransferCharacteristic color_trc;
+        public AVColorSpace colorspace;
+        public AVChromaLocation chroma_location;
+        public long best_effort_timestamp;
+        public long pkt_pos;
+        public AVDictionary* metadata;
+        public int decode_error_flags;
+        public int pkt_size;
+        public AVBufferRef* hw_frames_ctx; 
+        public AVBufferRef* opaque_ref;
+        public uint crop_top;
+        public uint crop_bottom;
+        public uint crop_left;
+        public uint crop_right;
+        public AVBufferRef* private_ref;
+        public AVChannelLayout ch_layout;
+        public long duration;
+    }
+#pragma warning restore CS0649 // Field is never assigned to, and will always have its default value
+    // ReSharper restore NotAccessedField.Local
+    // ReSharper restore InconsistentNaming
 
     public class EncoderException(string message) : Exception(message);
 }
