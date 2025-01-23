@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using FFmpeg.AutoGen;
@@ -20,6 +21,9 @@ public unsafe class Encoder : IDisposable
 {
     public const AVCodecID VideoCodec = AVCodecID.AV_CODEC_ID_H264;
     public const AVCodecID AudioCodec = AVCodecID.AV_CODEC_ID_AAC;
+
+    private readonly Stopwatch _videoStopwatch;
+    private readonly Stopwatch _audioStopwatch;
     
     private readonly ConcurrentQueue<byte[]> _videoDataQueue = new();
     private readonly ConcurrentQueue<byte[]> _audioDataQueue = new();
@@ -53,7 +57,6 @@ public unsafe class Encoder : IDisposable
     private Task _muxerThread;
     private Task _stopTask;
     
-    private long _framecount;
     private long _samplecount;
     
     private bool _hardStop;
@@ -67,10 +70,15 @@ public unsafe class Encoder : IDisposable
     public bool Faulted { get; private set; }
     public int MaxVideoFramesQueued { get; private set; }
     public int MaxAudioFramesQueued { get; private set; }
-
+    public long Frames { get; private set; }
+    public long AudioFrames { get; private set; }
+    public decimal VideoEncodeTime { get; private set; }
+    public decimal AudioEncodeTime { get; private set; }
+    
     public readonly VideoSettings VideoConfig;
     public readonly AudioSettings AudioConfig;
     public readonly bool HasAudio;
+    public readonly bool HasProfiling;
     
     // Video frames are an intuitive concept, audio frames generally less so. In short, an audio frame is a sequence of
     // audio samples that cannot be encoded or decoded independently, a video frame is the same but with pixels. The
@@ -206,6 +214,21 @@ public unsafe class Encoder : IDisposable
         _audioDataBufferPool = new DataBufferPool(AudioFrameSize, aconf.PoolDepth);
     }
     
+    public Encoder(VideoSettings conf, bool doProfiling) : this(conf)
+    {
+        HasProfiling = doProfiling;
+        if (!doProfiling) return;
+        _videoStopwatch = new Stopwatch();
+    }
+
+    public Encoder(VideoSettings vconf, AudioSettings aconf, bool doProfiling) : this(vconf, aconf)
+    {
+        HasProfiling = doProfiling;
+        if (!doProfiling) return;
+        _videoStopwatch = new Stopwatch();
+        _audioStopwatch = new Stopwatch();
+    }
+    
     // Get a buffer for frame data from a pool to avoid excessive memory allocation for raw video data frame arrays.
     // Throws an exception if this was not enabled in the video settings on instantiation of the Encoder.
     // If a limit has been set on pool depth, will return null if too many buffers have already been released.
@@ -303,6 +326,8 @@ public unsafe class Encoder : IDisposable
                     if (Stopping) break;
                     continue;
                 }
+                
+                if (HasProfiling) _videoStopwatch.Start();
 
                 if (ffmpeg.av_frame_make_writable(frame) < 0)
                     throw new EncoderException("Failed to make video codec AVFrame writable.");
@@ -326,8 +351,8 @@ public unsafe class Encoder : IDisposable
                 if (VideoConfig.UsePooledDataBuffers)
                     _videoDataBufferPool.Push(buffer);
 
-                frame->pts = _framecount;
-                _framecount++;
+                frame->pts = Frames;
+                Frames++;
 
                 if (ffmpeg.avcodec_send_frame(_videoCodecContext, frame) < 0)
                     throw new EncoderException("Error on attempting to encode video frame.");
@@ -354,7 +379,16 @@ public unsafe class Encoder : IDisposable
                     
                     // No packet retrieved because encoder needs more input data, repeat outer loop to get next frame.
                     // FFmpeg.AutoGen has EAGAIN as positive, but the actual return code is negative; negate it.
-                    if (ret == -ffmpeg.EAGAIN) break;
+                    if (ret == -ffmpeg.EAGAIN)
+                    {
+                        if (!HasProfiling) break;
+                        
+                        _videoStopwatch.Stop();
+                        VideoEncodeTime += (decimal)_videoStopwatch.ElapsedTicks / Stopwatch.Frequency;
+                        _videoStopwatch.Reset();
+                        
+                        break;
+                    }
                     
                     // Otherwise, some other error occurred.
                     throw new EncoderException("Error on attempting to retrieve encoded video packet.");
@@ -365,6 +399,7 @@ public unsafe class Encoder : IDisposable
         {
             ffmpeg.av_frame_free(&frame);
             ffmpeg.av_packet_free(&packet);
+            _videoStopwatch?.Reset();
         }
     }
 
@@ -379,6 +414,8 @@ public unsafe class Encoder : IDisposable
             if (ffmpeg.avcodec_send_frame(_videoCodecContext, null) < 0)
                 throw new EncoderException("Failed to send flush packet to video codec.");
 
+            if (HasProfiling) _videoStopwatch.Start();
+            
             while (true)
             {
                 packet = ffmpeg.av_packet_alloc();
@@ -400,10 +437,17 @@ public unsafe class Encoder : IDisposable
 
                 throw new EncoderException("Error receiving packet during video codec draining.");
             }
+
+            if (HasProfiling)
+            {
+                _videoStopwatch.Stop();
+                VideoEncodeTime += (decimal)_videoStopwatch.ElapsedTicks / Stopwatch.Frequency;
+            }
         }
         finally
         {
             ffmpeg.av_packet_free(&packet);
+            _videoStopwatch?.Reset();
         }
     }
 
@@ -440,6 +484,8 @@ public unsafe class Encoder : IDisposable
                     continue;
                 }
 
+                if (HasProfiling) _audioStopwatch.Start();
+
                 if (ffmpeg.av_frame_make_writable(frame) < 0)
                     throw new EncoderException("Failed to make audio codec AVFrame writable.");
 
@@ -463,6 +509,7 @@ public unsafe class Encoder : IDisposable
 
                 frame->pts = _samplecount;
                 _samplecount += SamplesPerFrame;
+                AudioFrames++;
 
                 if (ffmpeg.avcodec_send_frame(_audioCodecContext, frame) < 0)
                     throw new EncoderException("Error on attempting to encode audio frame.");
@@ -483,7 +530,16 @@ public unsafe class Encoder : IDisposable
                         continue;
                     }
                     
-                    if (ret == -ffmpeg.EAGAIN) break;
+                    if (ret == -ffmpeg.EAGAIN)
+                    {
+                        if (!HasProfiling) break;
+                        
+                        _audioStopwatch.Stop();
+                        AudioEncodeTime += (decimal)_audioStopwatch.ElapsedTicks / Stopwatch.Frequency;
+                        _audioStopwatch.Reset();
+                        
+                        break;
+                    }
                     
                     throw new EncoderException("Error on attempting to retrieve encoded audio packet.");
                 }
@@ -493,6 +549,7 @@ public unsafe class Encoder : IDisposable
         {
             ffmpeg.av_frame_free(&frame);
             ffmpeg.av_packet_free(&packet);
+            _audioStopwatch?.Reset();
         }
     }
 
@@ -505,6 +562,8 @@ public unsafe class Encoder : IDisposable
             if (ffmpeg.avcodec_send_frame(_audioCodecContext, null) < 0)
                 throw new EncoderException("Failed to send flush packet to audio codec.");
 
+            if (HasProfiling) _audioStopwatch.Start();
+            
             while (true)
             {
                 packet = ffmpeg.av_packet_alloc();
@@ -526,10 +585,17 @@ public unsafe class Encoder : IDisposable
 
                 throw new EncoderException("Error receiving packet during audio codec draining.");
             }
+
+            if (HasProfiling)
+            {
+                _audioStopwatch.Stop();
+                AudioEncodeTime += (decimal)_audioStopwatch.ElapsedTicks / Stopwatch.Frequency;
+            }
         }
         finally
         {
             ffmpeg.av_packet_free(&packet);
+            _audioStopwatch?.Reset();
         }
     }
 
