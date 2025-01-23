@@ -88,8 +88,9 @@ public static class InfoPanel
     private static void UpdatePosition()
     {
         _header.SetPosition(_panelAnchor);
-        _infoLabel.SetPosition(_panelAnchor - new Vector2(0f, HeaderHeight + _lineHeight));
-        _infoLabelData.SetPosition(_panelAnchor - new Vector2(-110f, HeaderHeight + _lineHeight));
+        var infoLabelHeight = HeaderHeight + _lineHeight;
+        _infoLabel.SetPosition(_panelAnchor - new Vector2(0f, infoLabelHeight));
+        _infoLabelData.SetPosition(_panelAnchor - new Vector2(-110f, infoLabelHeight));
     }
 
     public static void UpdateVisibility()

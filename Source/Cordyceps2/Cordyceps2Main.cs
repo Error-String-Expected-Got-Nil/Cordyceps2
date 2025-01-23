@@ -11,18 +11,17 @@ public class Cordyceps2Main : BaseUnityPlugin
     public const string PluginName = "Cordyceps2 TAS Tool";
     public const string PluginVersion = "1.0.0";
 
+    private static bool _initialized;
+    private static bool _postInitialized;
+    
     // Only valid after initialization, when all mods are loaded.
     public static string ModPath => ModManager.ActiveMods.Find(mod => mod.id == PluginGuid)?.path;
     
-    public static Cordyceps2Main Instance;
-
-    private static bool _initialized;
-    private static bool _postInitialized;
+    public static Cordyceps2Main Instance { get; private set; }
     
     private void OnEnable()
     {
         Instance = this;
-        
         On.RainWorld.OnModsInit += RainWorld_OnModsInit_Hook;
         On.RainWorld.PostModsInit += RainWorld_PostModsInit_Hook;
     }
@@ -43,6 +42,8 @@ public class Cordyceps2Main : BaseUnityPlugin
             On.MoreSlugcats.SpeedRunTimer.GetTimerTickIncrement +=
                 TimeControl.MoreSlugcats_SpeedRunTimer_GetTimerTickIncrement_Hook;
             IL.RainWorldGame.RawUpdate += TimeControl.RainWorldGame_RawUpdate_ILHook;
+
+            On.MainLoopProcess.Update += Recording.MainLoopProcess_Update_Hook;
             
             MachineConnector.SetRegisteredOI("esegn.cordyceps2", Cordyceps2Settings.Instance);
 
