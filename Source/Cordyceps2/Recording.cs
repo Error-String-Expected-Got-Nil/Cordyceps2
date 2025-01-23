@@ -14,6 +14,7 @@ public static class Recording
     private static VideoCapture _videoCapture;
 
     public static RecordStatus Status { get; private set; } = RecordStatus.Stopped;
+    public static decimal RecordTime { get; private set; }
     
     public static bool BinariesLoaded;
     
@@ -55,15 +56,15 @@ public static class Recording
         SetLibAvLogLevel();
     }
 
-    public static void SetLibAvLogLevel()
+    public static void StartRecording()
     {
-        if (!BinariesLoaded) return;
-        ffmpeg.av_log_set_level(Cordyceps2Settings.LibAvLogLevelInt);
+        // TODO
     }
 
     public static void NotifyFrameDropped()
     {
         // TODO: Implement
+        RecordTime -= (decimal)1 / Cordyceps2Settings.RecordingFps.Value;
     }
 
     // Hook responsible for making frame the requests that eventually result in data being submitted to the encoder.
@@ -86,13 +87,23 @@ public static class Recording
             
             _frameRequestCounter += (double)Cordyceps2Settings.RecordingFps.Value / tickrate;
             var requestCount = (int)Math.Floor(_frameRequestCounter);
-            if (requestCount > 0) _videoCapture.RequestFrames(requestCount);
+            
+            if (requestCount <= 0) return;
+            
+            _videoCapture.RequestFrames(requestCount);
+            RecordTime += (decimal)requestCount / Cordyceps2Settings.RecordingFps.Value;
             _frameRequestCounter -= requestCount;
         }
         catch (Exception e)
         {
             Log($"ERROR - Exception in MainLoopProcess_Update_Hook: {e}");
         }
+    }
+    
+    public static void SetLibAvLogLevel()
+    {
+        if (!BinariesLoaded) return;
+        ffmpeg.av_log_set_level(Cordyceps2Settings.LibAvLogLevelInt);
     }
 
     private static void Log(string str) => Debug.Log($"[Cordyceps2/Recording] {str}");

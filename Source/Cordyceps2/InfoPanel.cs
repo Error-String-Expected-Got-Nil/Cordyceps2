@@ -83,6 +83,23 @@ public static class InfoPanel
             (TimeControl.TickrateCapOn ? "On" : "Off") + "\n" +
             (TimeControl.TickPauseOn ? "On" : "Off") +
             (Cordyceps2Settings.ShowTickCounter.Value ? $"\n{TimeControl.TickCount}" : "");
+
+        if (!Cordyceps2Settings.EnableRecording.Value) return;
+
+        _infoLabel.text +=
+            "\n\n-=- Recording -=-\n" +
+            "Record Status: \n" +
+            "Record Time: \n";
+
+        _infoLabelData.text += 
+            "\n\n\n" +
+            $"{Recording.Status}\n" +
+            FormatTime(Recording.RecordTime);
+
+        return;
+
+        string FormatTime(decimal seconds) 
+            => $"{(int)seconds / 3600:0}:{(int)seconds / 60 % 60:00}:{seconds % 60:00.00}";
     }
 
     private static void UpdatePosition()
