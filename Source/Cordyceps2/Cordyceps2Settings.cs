@@ -1,5 +1,6 @@
 ﻿using FFmpeg.AutoGen;
 using Menu.Remix.MixedUI;
+using RWCustom;
 using UnityEngine;
 
 namespace Cordyceps2;
@@ -249,5 +250,17 @@ public class Cordyceps2Settings : OptionInterface
         });
 
         LibAvLogLevel.OnChange += Recording.SetLibAvLogLevel;
+    }
+
+    public Vector2 GetRecordingInputResolution()
+    {
+        // TODO: Apply modifier if upscaling captured texture
+        return Custom.rainWorld.options.ScreenSize;
+    }
+
+    public Vector2 GetRecordingOutputResolution()
+    {
+        // TODO: Make an setting for this
+        return Custom.rainWorld.options.ScreenSize;
     }
 }

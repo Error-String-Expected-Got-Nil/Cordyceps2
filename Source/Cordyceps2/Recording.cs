@@ -58,8 +58,43 @@ public static class Recording
 
     public static void StartRecording()
     {
+        var path = Cordyceps2Settings.RecordingOutputDirectory.Value;
+        if (!Directory.Exists(path))
+        {
+            try
+            {
+                Directory.CreateDirectory(path);
+            }
+            catch (Exception e)
+            {
+                Log("ERROR - Failed to create directory with path: \"" + path + "\", it was probably invalid.");
+                Log("Exception: " + e);
+                return;
+            }
+        }
+
+        path = Path.Combine(path, GetFilename());
+
+        try
+        {
+            var file = new FileStream(path, FileMode.CreateNew);
+            file.Close();
+        }
+        catch (Exception e)
+        {
+            Log("ERROR - Failed to create file to test if target directory was writable. Full path: \"" + path +
+                "\". Most likely, the program was not allowed to write to this path.");
+            Log("Exception: " + e);
+            return;
+        }
+
         // TODO
+        var vconf = new Encoder.VideoSettings(
+            
+        );
     }
+
+    private static string GetFilename() => "Cordyceps2 " + new DateTime().ToString("yyyy-MM-dd HH:mm:ss");
 
     public static void NotifyFrameDropped()
     {
