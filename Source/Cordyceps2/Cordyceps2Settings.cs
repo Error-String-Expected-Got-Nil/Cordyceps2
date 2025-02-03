@@ -10,6 +10,9 @@ public class Cordyceps2Settings : OptionInterface
     private static readonly string[] H264Presets 
         = ["ultrafast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo"];
 
+    private static readonly string[] OutputResolutions 
+        = ["Native", "1920x1080"];
+
     private static readonly string[] LibAvLogLevels 
         = ["quiet", "panic", "fatal", "error", "warning", "info", "verbose", "debug", "trace"];
     
@@ -78,17 +81,24 @@ public class Cordyceps2Settings : OptionInterface
     public static Configurable<KeyCode> StopRecordingKey =
         Instance.config.Bind(nameof(StopRecordingKey), KeyCode.T, new ConfigurableInfo(
             "Press to stop recording. See log file for results."));
+
+    public static Configurable<string> OutputResolution =
+        Instance.config.Bind(nameof(OutputResolution), "Native", new ConfigurableInfo(
+            "Resolution to output recorded video at. \"Native\" means the actual resolution the game is " +
+            "running at. Changing this off of Native will significantly increase encode time.", 
+            new ConfigAcceptableList<string>(OutputResolutions)));
     
     // Second column
     public static Configurable<bool> EnableRecording =
         Instance.config.Bind(nameof(EnableRecording), true, new ConfigurableInfo(
-            "Uncheck this to disable recording features."));
+            "Uncheck this to prevent recording from starting."));
     
     public static Configurable<int> RecordingFps =
         Instance.config.Bind(nameof(RecordingFps), 40, new ConfigurableInfo(
             "The frames per second value to record at.", 
             new ConfigAcceptableRange<int>(1, 300)));
 
+    // Middle
     public static Configurable<string> RecordingOutputDirectory =
         Instance.config.Bind(nameof(RecordingOutputDirectory), "C:\\cordyceps2", new ConfigurableInfo(
             "Directory to save recorded videos to."));
@@ -108,8 +118,7 @@ public class Cordyceps2Settings : OptionInterface
     
     public static Configurable<string> EncoderPreset =
         Instance.config.Bind(nameof(EncoderPreset), "veryfast", new ConfigurableInfo(
-            "h264 encoder preset. Faster options are less efficient but take less processing time. Be " +
-            "careful when increasing this, you should probably leave it on the default.",
+            "h264 encoder preset. Faster options are less efficient but take less processing time.",
             new ConfigAcceptableList<string>(H264Presets)));
     
     // Extras Page
@@ -127,7 +136,7 @@ public class Cordyceps2Settings : OptionInterface
     
     // Second column
     public static Configurable<bool> DoProfiling =
-        Instance.config.Bind(nameof(DoProfiling), false, new ConfigurableInfo(
+        Instance.config.Bind(nameof(DoProfiling), true, new ConfigurableInfo(
             "If enabled, encoder will also track some profiling information, and print it to the log file " +
             "when recording ends."));
 
@@ -208,6 +217,11 @@ public class Cordyceps2Settings : OptionInterface
             new OpKeyBinder(StopRecordingKey, new Vector2(150f, 535f), 
                 new Vector2(120f, 30f)) {description = StopRecordingKey.info.description},
             
+            new OpLabel(10f, 505f, "Output Resolution")
+                {description = OutputResolution.info.description},
+            new OpComboBox(OutputResolution, new Vector2(150f, 500f), 120, OutputResolutions)
+                {description = OutputResolution.info.description},
+            
             // Second column
             new OpLabel(300f, 575f, "Enable Recording")
                 {description = EnableRecording.info.description},
@@ -220,11 +234,11 @@ public class Cordyceps2Settings : OptionInterface
                 {description = RecordingFps.info.description},
             
             // Middle row
-            new OpLabel(10f, 505f, "Output Directory")
+            new OpLabel(10f, 470f, "Output Directory")
                 {description = RecordingOutputDirectory.info.description},
-            new OpTextBox(RecordingOutputDirectory, new Vector2(10f, 470f), 570f)
+            new OpTextBox(RecordingOutputDirectory, new Vector2(10f, 435f), 570f)
                 {description = RecordingOutputDirectory.info.description},
-            new OpLabelLong(new Vector2(10f, 435f), new Vector2(570f, 0f), 
+            new OpLabelLong(new Vector2(10f, 400f), new Vector2(570f, 0f), 
                 "Given path must be a directory, or a valid path for a directory. If the directory does not " +
                 "exist when recording starts, it will be created. If the given path is not valid or the directory " +
                 "could not be created, recording will fail to start, and it will be noted as the reason in the log."),
@@ -283,7 +297,10 @@ public class Cordyceps2Settings : OptionInterface
 
     public static Vector2 GetRecordingOutputResolution()
     {
-        // TODO: Make an setting for this
-        return Custom.rainWorld.options.ScreenSize;
+        return OutputResolution.Value switch
+        {
+            "1920x1080" => new Vector2(1920, 1080),
+            _ => Custom.rainWorld.options.ScreenSize
+        };
     }
 }

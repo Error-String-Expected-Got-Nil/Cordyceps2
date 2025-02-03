@@ -972,6 +972,8 @@ public unsafe class Encoder : IDisposable
         // output, as graphics APIs have the image origin in the bottom left, while videos usually use the upper left.
         bool VerticalFlip = false,
         
+        // TODO: Allow passing SWS flags
+        
         // If true, you must use GetVideoDataBuffer to get the byte[] you pass into SubmitVideoData. These will be 
         // drawn from an automatically-expanding pool to ensure the buffers remain allocated for use and reuse across
         // the whole lifetime of the Encoder, easing pressure on the garbage collector.
