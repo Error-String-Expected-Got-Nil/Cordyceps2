@@ -14,7 +14,9 @@ public static class Recording
 {
     private static double _frameRequestCounter;
     private static VideoCapture _videoCapture;
-
+    private static bool _startRecordingHeld;
+    private static bool _stopRecordingHeld;
+    
     public static RecordStatus Status { get; private set; } = RecordStatus.Stopped;
     public static decimal RecordTime { get; private set; }
     public static Encoder Encoder { get; private set; }
@@ -57,6 +59,11 @@ public static class Recording
         Log("Bindings initialized.");
         BinariesLoaded = true;
         SetLibAvLogLevel();
+        
+        // Need to attach the video capture script to *something,* and whatever object holds the mod's plugin is
+        // probably fine. I don't think it should matter where it is, it just needs to exist somewhere.
+        // TODO: Also add audio capture when that's implemented
+        _videoCapture = Cordyceps2Main.Instance.gameObject.AddComponent<VideoCapture>();
     }
 
     public static void StartRecording()
@@ -107,11 +114,6 @@ public static class Recording
 
         Encoder.OnFault += Notify_EncoderFault;
 
-        // Need to attach the video capture script to *something,* and whatever object holds the mod's plugin is
-        // probably fine. I don't think it should matter where it is, it just needs to exist somewhere.
-        // TODO: Also add condition to add audio capture when that's implemented
-        _videoCapture = Cordyceps2Main.Instance.gameObject.AddComponent<VideoCapture>();
-
         try
         {
             Encoder.Start(path);
@@ -122,6 +124,8 @@ public static class Recording
             Encoder.Dispose();
             return;
         }
+
+        RecordTime = 0;
         
         Log("Successfully started recording, output path: \"" + path + "\"");
         Status = RecordStatus.Recording;
@@ -164,17 +168,21 @@ public static class Recording
             {
                 Log("Total video frames encoded: " + Encoder.Frames);
                 Log("Total video encode time: " + InfoPanel.FormatTime(Encoder.VideoEncodeTime));
-                Log("Average video encode time per frame: " + (Encoder.VideoEncodeTime / Encoder.Frames * 1000)
-                    .ToString("0.00") + "ms");
-                Log("Relative video encode rate: " + (RecordTime / Encoder.VideoEncodeTime)
-                    .ToString("0.00") + "x");
+                Log("Average video encode time per frame: " + 
+                    (Encoder.Frames == 0 
+                        ? "0.00" 
+                        : (Encoder.VideoEncodeTime / Encoder.Frames * 1000).ToString("0.00")) 
+                    + "ms");
+                Log("Relative video encode rate: " + 
+                    (Encoder.VideoEncodeTime == 0 
+                        ? "0.00" 
+                        : (RecordTime / Encoder.VideoEncodeTime).ToString("0.00")) 
+                    + "x");
             
                 // TODO: Print audio profiling data if present
             }
         
             Encoder.Dispose();
-            Object.Destroy(_videoCapture);
-            // TODO: If audio capture, also destroy audio capture component
             Status = RecordStatus.Stopped;
         }
     }
@@ -199,8 +207,6 @@ public static class Recording
         {
             Log("Recording stopped.");
             Encoder.Dispose();
-            Object.Destroy(_videoCapture);
-            // TODO: If audio capture, also destroy audio capture component
             Status = RecordStatus.Stopped;
         }
     }
@@ -213,12 +219,14 @@ public static class Recording
     {
         orig(self);
         
-        if (Status != RecordStatus.Recording) return;
-        
         try
         {
+            CheckInputsRecording();
+            
+            if (Status != RecordStatus.Recording) return;
+            
             if (self.manager.currentMainLoop != self) return;
-
+            
             var tickrate = self is RainWorldGame 
                 ? TimeControl.UnmodifiedTickrate 
                 : self.framesPerSecond;
@@ -236,6 +244,30 @@ public static class Recording
         {
             Log($"ERROR - Exception in MainLoopProcess_Update_Hook: {e}");
         }
+    }
+
+    private static void CheckInputsRecording()
+    {
+        if (Input.GetKey(Cordyceps2Settings.StartRecordingKey.Value))
+        {
+            if (_startRecordingHeld) return;
+            if (!Cordyceps2Settings.EnableRecording.Value) return;
+            if (Status != RecordStatus.Stopped) return;
+
+            _startRecordingHeld = true;
+            StartRecording();
+        }
+        else _startRecordingHeld = false;
+
+        if (Input.GetKey(Cordyceps2Settings.StopRecordingKey.Value))
+        {
+            if (_stopRecordingHeld) return;
+            if (Status != RecordStatus.Recording) return;
+
+            _stopRecordingHeld = true;
+            StopRecording();
+        }
+        else _stopRecordingHeld = false;
     }
     
     public static void SetLibAvLogLevel()

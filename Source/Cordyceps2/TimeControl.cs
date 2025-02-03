@@ -23,7 +23,7 @@ public static class TimeControl
 
     private static float _keyHoldStopwatch;
 
-    private static readonly bool[] HeldKeys = new bool[10];
+    private static readonly bool[] HeldKeys = new bool[8];
     
     // IL Hook: Handles modifying the tickrate and calling input check function.
     public static void RainWorldGame_RawUpdate_ILHook(ILContext il)
@@ -214,29 +214,6 @@ public static class TimeControl
         else HeldKeys[7] = false;
 
         _keyHoldStopwatch = 0f;
-
-        // Doesn't actually have anything to do with time control, but input handling is already done here so this is
-        // the easiest place to put this.
-        if (Input.GetKey(Cordyceps2Settings.StartRecordingKey.Value))
-        {
-            if (HeldKeys[8]) return;
-            if (!Cordyceps2Settings.EnableRecording.Value) return;
-            if (Recording.Status != RecordStatus.Stopped) return;
-
-            HeldKeys[8] = true;
-            Recording.StartRecording();
-        }
-        else HeldKeys[8] = false;
-
-        if (Input.GetKey(Cordyceps2Settings.StopRecordingKey.Value))
-        {
-            if (HeldKeys[9]) return;
-            if (Recording.Status != RecordStatus.Recording) return;
-
-            HeldKeys[9] = true;
-            Recording.StopRecording();
-        }
-        else HeldKeys[9] = false;
     }
     
     private static void Log(string str) { Debug.Log($"[Cordyceps2/TimeControl] {str}"); }

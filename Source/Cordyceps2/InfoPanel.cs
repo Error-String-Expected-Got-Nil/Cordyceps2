@@ -35,7 +35,7 @@ public static class InfoPanel
                 $"Cordyceps2 v{Cordyceps2Main.PluginVersion}\n" +
                 $"Press [{Cordyceps2Settings.ToggleInfoPanelKey.Value.ToString()}] to toggle visibility of this " +
                 "panel.\n" + 
-                "You can also click and drag it to change its position.\n")
+                "You can also click and drag it to change its position.\n\n")
         {
             isVisible = true,
             alpha = TextAlpha,
