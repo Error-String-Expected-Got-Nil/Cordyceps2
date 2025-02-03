@@ -33,7 +33,7 @@ public class VideoCapture : MonoBehaviour
                     "video frames queued and another could not be accepted. Play the game at a lower speed, set " +
                     "the encoder to use a faster preset, or increase the video buffer pool depth.");
                 Destroy(frame);
-                Recording.NotifyFrameDropped();
+                Recording.Notify_FrameDropped();
                 yield break;
             }
 

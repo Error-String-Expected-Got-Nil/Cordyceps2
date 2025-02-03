@@ -95,12 +95,10 @@ public static class InfoPanel
             "\n\n\n" +
             $"{Recording.Status}\n" +
             FormatTime(Recording.RecordTime);
-
-        return;
-
-        string FormatTime(decimal seconds) 
-            => $"{(int)seconds / 3600:0}:{(int)seconds / 60 % 60:00}:{seconds % 60:00.00}";
     }
+    
+    public static string FormatTime(decimal seconds) 
+        => $"{(int)seconds / 3600:0}:{(int)seconds / 60 % 60:00}:{seconds % 60:00.00}";
 
     private static void UpdatePosition()
     {

@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using FFmpeg.AutoGen;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Cordyceps2;
 
@@ -146,8 +147,39 @@ public static class Recording
             Cordyceps2Settings.VideoBufferPoolDepth.Value
         );
     }
+
+    public static void StopRecording()
+    {
+        Status = RecordStatus.Stopping;
+        Log("Stopping recording.");
+        Encoder.Stop().ContinueWith(RecordStopCallback);
+
+        return;
+        
+        void RecordStopCallback(Task task)
+        {
+            Log("Recording stopped.");
+            Log("Total record time: " + InfoPanel.FormatTime(RecordTime));
+            if (Encoder.HasProfiling)
+            {
+                Log("Total video frames encoded: " + Encoder.Frames);
+                Log("Total video encode time: " + InfoPanel.FormatTime(Encoder.VideoEncodeTime));
+                Log("Average video encode time per frame: " + (Encoder.VideoEncodeTime / Encoder.Frames * 1000)
+                    .ToString("0.00") + "ms");
+                Log("Relative video encode rate: " + (RecordTime / Encoder.VideoEncodeTime)
+                    .ToString("0.00") + "x");
+            
+                // TODO: Print audio profiling data if present
+            }
+        
+            Encoder.Dispose();
+            Object.Destroy(_videoCapture);
+            // TODO: If audio capture, also destroy audio capture component
+            Status = RecordStatus.Stopped;
+        }
+    }
     
-    public static void NotifyFrameDropped()
+    public static void Notify_FrameDropped()
     {
         // TODO: Implement
         RecordTime -= (decimal)1 / Cordyceps2Settings.RecordingFps.Value;
@@ -155,7 +187,21 @@ public static class Recording
 
     private static void Notify_EncoderFault(Encoder sender, string origin, AggregateException cause, Task stopTask)
     {
-        // TODO: Implement
+        Status = RecordStatus.Stopping;
+        Log($"ERROR - Encoder encountered a fault during operation, stopping recording. Location: {origin}");
+        Log($"Exception: {cause}");
+        stopTask.ContinueWith(RecordStopCallback);
+
+        return;
+
+        void RecordStopCallback(Task task)
+        {
+            Log("Recording stopped.");
+            Encoder.Dispose();
+            Object.Destroy(_videoCapture);
+            // TODO: If audio capture, also destroy audio capture component
+            Status = RecordStatus.Stopped;
+        }
     }
 
     // Hook responsible for making frame the requests that eventually result in data being submitted to the encoder.
