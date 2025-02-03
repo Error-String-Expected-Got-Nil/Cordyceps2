@@ -88,6 +88,11 @@ public class Cordyceps2Settings : OptionInterface
             "running at. Changing this off of Native will significantly increase encode time.", 
             new ConfigAcceptableList<string>(OutputResolutions)));
     
+    public static Configurable<bool> BitExactScaling =
+        Instance.config.Bind(nameof(BitExactScaling), false, new ConfigurableInfo(
+            "If enabled, certain approximations will be skipped when reformatting video frames for the " +
+            "encoder. Slower, but may produce a better image."));
+    
     // Second column
     public static Configurable<bool> EnableRecording =
         Instance.config.Bind(nameof(EnableRecording), true, new ConfigurableInfo(
@@ -222,6 +227,11 @@ public class Cordyceps2Settings : OptionInterface
             new OpComboBox(OutputResolution, new Vector2(150f, 500f), 120, OutputResolutions)
                 {description = OutputResolution.info.description},
             
+            new OpLabel(10f, 470f, "Bit Exact Scaling")
+                {description = BitExactScaling.info.description},
+            new OpCheckBox(BitExactScaling, new Vector2(150f, 465f))
+                {description = BitExactScaling.info.description},
+            
             // Second column
             new OpLabel(300f, 575f, "Enable Recording")
                 {description = EnableRecording.info.description},
@@ -234,11 +244,11 @@ public class Cordyceps2Settings : OptionInterface
                 {description = RecordingFps.info.description},
             
             // Middle row
-            new OpLabel(10f, 470f, "Output Directory")
+            new OpLabel(10f, 435f, "Output Directory")
                 {description = RecordingOutputDirectory.info.description},
-            new OpTextBox(RecordingOutputDirectory, new Vector2(10f, 435f), 570f)
+            new OpTextBox(RecordingOutputDirectory, new Vector2(10f, 400f), 570f)
                 {description = RecordingOutputDirectory.info.description},
-            new OpLabelLong(new Vector2(10f, 400f), new Vector2(570f, 0f), 
+            new OpLabelLong(new Vector2(10f, 365f), new Vector2(570f, 0f), 
                 "Given path must be a directory, or a valid path for a directory. If the directory does not " +
                 "exist when recording starts, it will be created. If the given path is not valid or the directory " +
                 "could not be created, recording will fail to start, and it will be noted as the reason in the log."),
@@ -302,5 +312,15 @@ public class Cordyceps2Settings : OptionInterface
             "1920x1080" => new Vector2(1920, 1080),
             _ => Custom.rainWorld.options.ScreenSize
         };
+    }
+
+    public static int GetSwsFlags()
+    {
+        // TODO: Allow selection of other scaling functions?
+        var flags = ffmpeg.SWS_BILINEAR;
+
+        if (BitExactScaling.Value) flags |= ffmpeg.SWS_BITEXACT | ffmpeg.SWS_ACCURATE_RND;
+        
+        return flags;
     }
 }

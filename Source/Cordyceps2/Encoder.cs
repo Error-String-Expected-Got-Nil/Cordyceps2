@@ -109,7 +109,7 @@ public unsafe class Encoder : IDisposable
         _frameFormatter = ffmpeg.sws_getContext(
             conf.VideoInputWidth, conf.VideoInputHeight, conf.InputPixelFormat,
             conf.VideoOutputWidth, conf.VideoOutputHeight, AVPixelFormat.AV_PIX_FMT_YUV420P,
-            ffmpeg.SWS_BILINEAR, null, null, null
+            conf.SwsFlags, null, null, null
         );
         _inputLinesize = ffmpeg.av_image_get_linesize(conf.InputPixelFormat, conf.VideoInputWidth, 0);
 
@@ -972,8 +972,6 @@ public unsafe class Encoder : IDisposable
         // output, as graphics APIs have the image origin in the bottom left, while videos usually use the upper left.
         bool VerticalFlip = false,
         
-        // TODO: Allow passing SWS flags
-        
         // If true, you must use GetVideoDataBuffer to get the byte[] you pass into SubmitVideoData. These will be 
         // drawn from an automatically-expanding pool to ensure the buffers remain allocated for use and reuse across
         // the whole lifetime of the Encoder, easing pressure on the garbage collector.
@@ -983,6 +981,9 @@ public unsafe class Encoder : IDisposable
         // the limit, GetVideoDataBuffer will return null instead. User is responsible for waiting before asking again.
         // Set to 0 to have no limit.
         int PoolDepth = 0,
+        
+        // Flag bitfield to pass to the video frame SWS context, to control how it is reformatted.
+        int SwsFlags = ffmpeg.SWS_BILINEAR,
         
         // Setting this to false makes the encoder ignore the next 3 entries, letting libav deal with it automatically.
         bool UseColorspaceInformation = true,

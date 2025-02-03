@@ -149,7 +149,8 @@ public static class Recording
             Cordyceps2Settings.EncoderPreset.Value,
             true,
             true,
-            Cordyceps2Settings.VideoBufferPoolDepth.Value
+            Cordyceps2Settings.VideoBufferPoolDepth.Value,
+            Cordyceps2Settings.GetSwsFlags()
         );
     }
 
