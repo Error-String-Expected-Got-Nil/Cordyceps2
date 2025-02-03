@@ -181,12 +181,13 @@ public static class Recording
     
     public static void Notify_FrameDropped()
     {
-        // TODO: Implement
+        // TODO: Automatically pause game, show info panel, and put warning message in it if this happens
         RecordTime -= (decimal)1 / Cordyceps2Settings.RecordingFps.Value;
     }
 
     private static void Notify_EncoderFault(Encoder sender, string origin, AggregateException cause, Task stopTask)
     {
+        // TODO: Automatically pause game, show info panel, and put warning message in it if this happens
         Status = RecordStatus.Stopping;
         Log($"ERROR - Encoder encountered a fault during operation, stopping recording. Location: {origin}");
         Log($"Exception: {cause}");
