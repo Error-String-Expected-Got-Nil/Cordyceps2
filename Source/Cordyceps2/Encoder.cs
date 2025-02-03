@@ -93,6 +93,8 @@ public unsafe class Encoder : IDisposable
     // Called when any of the processing threads in the Encoder stop due to an unhandled exception.
     public event OnFaultEvent OnFault;
     
+    // TODO: Verify no memory leaks if exception occurs in constructor? May be unnecessary due to how unlikely that is,
+    //  though; and they'd be small anyways
     public Encoder(VideoSettings conf)
     {
         if (Environment.Is64BitProcess)
@@ -777,6 +779,7 @@ public unsafe class Encoder : IDisposable
             // Empty anything remaining in the codecs, unless hard stop was triggered.
             if (!_hardStop)
             {
+                // TODO: May need to also add a catch around the drain functions in case they fault
                 DrainVideoCodec();
                 if (HasAudio) DrainAudioCodec();
             }

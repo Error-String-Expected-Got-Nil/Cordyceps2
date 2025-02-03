@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using FFmpeg.AutoGen;
 using UnityEngine;
 
@@ -15,6 +16,7 @@ public static class Recording
 
     public static RecordStatus Status { get; private set; } = RecordStatus.Stopped;
     public static decimal RecordTime { get; private set; }
+    public static Encoder Encoder { get; private set; }
     
     public static bool BinariesLoaded;
     
@@ -58,6 +60,8 @@ public static class Recording
 
     public static void StartRecording()
     {
+        Log("Attempting to start recording.");
+        
         var path = Cordyceps2Settings.RecordingOutputDirectory.Value;
         if (!Directory.Exists(path))
         {
@@ -88,18 +92,70 @@ public static class Recording
             return;
         }
 
-        // TODO
-        var vconf = new Encoder.VideoSettings(
-            
-        );
+        
+        // TODO: For audio, make alternate form to create with audio settings if audio recording is enabled
+        try
+        {
+            Encoder = new Encoder(GetVideoSettings(), Cordyceps2Settings.DoProfiling.Value);
+        }
+        catch (Encoder.EncoderException e)
+        {
+            Log($"ERROR - Failed to construct encoder instance. Exception: {e}");
+            return;
+        }
+
+        Encoder.OnFault += Notify_EncoderFault;
+
+        // Need to attach the video capture script to *something,* and whatever object holds the mod's plugin is
+        // probably fine. I don't think it should matter where it is, it just needs to exist somewhere.
+        // TODO: Also add condition to add audio capture when that's implemented
+        _videoCapture = Cordyceps2Main.Instance.gameObject.AddComponent<VideoCapture>();
+
+        try
+        {
+            Encoder.Start(path);
+        }
+        catch (Encoder.EncoderException e)
+        {
+            Log($"ERROR - Failed to call start on encoder. Exception: {e}");
+            Encoder.Dispose();
+            return;
+        }
+        
+        Log("Successfully started recording, output path: \"" + path + "\"");
+        Status = RecordStatus.Recording;
     }
 
     private static string GetFilename() => "Cordyceps2 " + new DateTime().ToString("yyyy-MM-dd HH:mm:ss");
 
+    private static Encoder.VideoSettings GetVideoSettings()
+    {
+        var inputSize = Cordyceps2Settings.GetRecordingInputResolution();
+        var outputSize = Cordyceps2Settings.GetRecordingOutputResolution();
+        return new Encoder.VideoSettings(
+            (int)inputSize.x,
+            (int)inputSize.y,
+            (int)outputSize.x,
+            (int)outputSize.y,
+            AVPixelFormat.AV_PIX_FMT_RGBA,
+            Cordyceps2Settings.RecordingFps.Value,
+            Cordyceps2Settings.KeyframeInterval.Value,
+            Cordyceps2Settings.ConstantRateFactor.Value,
+            Cordyceps2Settings.EncoderPreset.Value,
+            true,
+            Cordyceps2Settings.VideoBufferPoolDepth.Value
+        );
+    }
+    
     public static void NotifyFrameDropped()
     {
         // TODO: Implement
         RecordTime -= (decimal)1 / Cordyceps2Settings.RecordingFps.Value;
+    }
+
+    private static void Notify_EncoderFault(Encoder sender, string origin, AggregateException cause, Task stopTask)
+    {
+        // TODO: Implement
     }
 
     // Hook responsible for making frame the requests that eventually result in data being submitted to the encoder.

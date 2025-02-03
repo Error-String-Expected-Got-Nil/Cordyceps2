@@ -118,6 +118,12 @@ public class Cordyceps2Settings : OptionInterface
         Instance.config.Bind(nameof(LibAvLogLevel), "error", new ConfigurableInfo(
             "libav logging level. Only for debugging purposes.",
             new ConfigAcceptableList<string>(LibAvLogLevels)));
+
+    public static Configurable<int> VideoBufferPoolDepth =
+        Instance.config.Bind(nameof(VideoBufferPoolDepth), 10, new ConfigurableInfo(
+            "Maximum number of video frames that may be queued for encoding at any given time. Set to 0 " +
+            "to leave unlimited (not recommended, may cause serious memory overuse).", 
+            new ConfigAcceptableRange<int>(0, 100)));
     
     // Second column
     public static Configurable<bool> DoProfiling =
@@ -254,6 +260,11 @@ public class Cordyceps2Settings : OptionInterface
             new OpComboBox(LibAvLogLevel, new Vector2(150f, 570f), 120, LibAvLogLevels) 
                 {description = LibAvLogLevel.info.description},
             
+            new OpLabel(10f, 540f, "Video Buffer Pool Depth")
+                {description = VideoBufferPoolDepth.info.description},
+            new OpUpdown(VideoBufferPoolDepth, new Vector2(150f, 535f), 120)
+                {description = VideoBufferPoolDepth.info.description},
+            
             // Second column
             new OpLabel(300f, 575f, "Do Profiling")
                 {description = DoProfiling.info.description},
@@ -264,13 +275,13 @@ public class Cordyceps2Settings : OptionInterface
         LibAvLogLevel.OnChange += Recording.SetLibAvLogLevel;
     }
 
-    public Vector2 GetRecordingInputResolution()
+    public static Vector2 GetRecordingInputResolution()
     {
         // TODO: Apply modifier if upscaling captured texture
         return Custom.rainWorld.options.ScreenSize;
     }
 
-    public Vector2 GetRecordingOutputResolution()
+    public static Vector2 GetRecordingOutputResolution()
     {
         // TODO: Make an setting for this
         return Custom.rainWorld.options.ScreenSize;

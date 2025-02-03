@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Cordyceps2;
 
-public class VideoCapture(Encoder encoder) : MonoBehaviour
+public class VideoCapture : MonoBehaviour
 {
     private int _requestedFrames;
 
@@ -26,7 +26,7 @@ public class VideoCapture(Encoder encoder) : MonoBehaviour
 
         try
         {
-            var buffer = encoder.GetVideoDataBuffer();
+            var buffer = Recording.Encoder.GetVideoDataBuffer();
             if (buffer == null)
             {
                 Log("ERROR - Frame dropped due to null video data buffer. This means there were already too many " +
@@ -41,7 +41,7 @@ public class VideoCapture(Encoder encoder) : MonoBehaviour
             // NativeArray<byte> instance.CopyTo() uses the NativeArray's length for this, we'll instead use the
             // buffer's length just in case. It's also slighty faster since it skips a couple intermediate calls.
             NativeArray<byte>.Copy(pixels, 0, buffer, 0, buffer.Length);
-            encoder.SubmitVideoData(buffer);
+            Recording.Encoder.SubmitVideoData(buffer);
         }
         catch (Exception e)
         {
