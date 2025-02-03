@@ -127,7 +127,7 @@ public static class Recording
         Status = RecordStatus.Recording;
     }
 
-    private static string GetFilename() => "Cordyceps2 " + new DateTime().ToString("yyyy-MM-dd HH:mm:ss");
+    private static string GetFilename() => "Cordyceps2 " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + ".mp4";
 
     private static Encoder.VideoSettings GetVideoSettings()
     {
