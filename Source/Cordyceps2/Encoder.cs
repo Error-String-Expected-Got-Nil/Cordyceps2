@@ -730,6 +730,8 @@ public unsafe class Encoder : IDisposable
         _outputFormatContext->pb = ctx;
         
         // This may or may not actually write anything to a file, but this must be called to initialize the muxer.
+        // TODO: Add options to make output mp4 fragmented in video settings
+        //  Would work by adding to options dictonary: "movflags" -> "+frag_keyframe+empty_moov"
         if (ffmpeg.avformat_write_header(_outputFormatContext, null) < 0)
             throw new EncoderException("Failed to write output file header/initialize muxer.");
 
