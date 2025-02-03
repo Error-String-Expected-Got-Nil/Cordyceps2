@@ -118,6 +118,12 @@ public class Cordyceps2Settings : OptionInterface
         Instance.config.Bind(nameof(LibAvLogLevel), "error", new ConfigurableInfo(
             "libav logging level. Only for debugging purposes.",
             new ConfigAcceptableList<string>(LibAvLogLevels)));
+    
+    // Second column
+    public static Configurable<bool> DoProfiling =
+        Instance.config.Bind(nameof(DoProfiling), false, new ConfigurableInfo(
+            "If enabled, encoder will also track some profiling information, and print it to the log file " +
+            "when recording ends."));
 
     public override void Initialize()
     {
@@ -247,6 +253,12 @@ public class Cordyceps2Settings : OptionInterface
                 {description = LibAvLogLevel.info.description},
             new OpComboBox(LibAvLogLevel, new Vector2(150f, 570f), 120, LibAvLogLevels) 
                 {description = LibAvLogLevel.info.description},
+            
+            // Second column
+            new OpLabel(300f, 575f, "Do Profiling")
+                {description = DoProfiling.info.description},
+            new OpCheckBox(DoProfiling, new Vector2(450f, 570f))
+                {description = DoProfiling.info.description},
         });
 
         LibAvLogLevel.OnChange += Recording.SetLibAvLogLevel;
