@@ -148,6 +148,7 @@ public static class Recording
             Cordyceps2Settings.ConstantRateFactor.Value,
             Cordyceps2Settings.EncoderPreset.Value,
             true,
+            true,
             Cordyceps2Settings.VideoBufferPoolDepth.Value
         );
     }

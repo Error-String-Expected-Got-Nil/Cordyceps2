@@ -289,6 +289,9 @@ public unsafe class Encoder : IDisposable
         var inputData = new byte*[1];
         var linesize = new[] { _inputLinesize };
 
+        // Height of chroma planes in output frame, necessary for vertical flip, if enabled.
+        var chromaHeight = VideoConfig.VideoOutputHeight / 2 + VideoConfig.VideoOutputHeight % 2;
+
         // Only need to allocate frame once. The buffers created by av_frame_get_buffer are ref-counted, and the codec
         // will create its own reference to those buffers to save the data it needs. Calling av_frame_make_writable
         // will check if there is more than one reference, and create new buffers for the frame if there are. Thus, the
@@ -353,6 +356,20 @@ public unsafe class Encoder : IDisposable
                 if (VideoConfig.UsePooledDataBuffers)
                     _videoDataBufferPool.Push(buffer);
 
+                if (VideoConfig.VerticalFlip)
+                {
+                    // Bumping the data pointers to the start of the final line in each and then making the linesize
+                    // negative allows the frame to effectively be vertically flipped without actually changing
+                    // the data in any way.
+                    frame->data[0] += (frame->height - 1) * frame->linesize[0];
+                    frame->data[1] += (chromaHeight - 1) * frame->linesize[1];
+                    frame->data[2] += (chromaHeight - 1) * frame->linesize[2];
+
+                    frame->linesize[0] = -frame->linesize[0];
+                    frame->linesize[1] = -frame->linesize[1];
+                    frame->linesize[2] = -frame->linesize[2];
+                }
+                
                 frame->pts = Frames;
                 Frames++;
 
@@ -949,6 +966,11 @@ public unsafe class Encoder : IDisposable
         int KeyframeInterval,
         float ConstantRateFactor,
         string Preset,
+        
+        // If enabled, modifies how the frame data is stored to veritcally flip the output frame with almost no extra
+        // processing requirement. May be necessary if you are, for example, pulling frames from a game's rendering
+        // output, as graphics APIs have the image origin in the bottom left, while videos usually use the upper left.
+        bool VerticalFlip = false,
         
         // If true, you must use GetVideoDataBuffer to get the byte[] you pass into SubmitVideoData. These will be 
         // drawn from an automatically-expanding pool to ensure the buffers remain allocated for use and reuse across
