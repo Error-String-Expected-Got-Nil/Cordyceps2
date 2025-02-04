@@ -8,7 +8,7 @@ using FFmpeg.AutoGen;
 
 namespace Cordyceps2;
 
-// This class is blanket unsafe since it's dealing with unmanaged libav data everywhere.
+// This class is blanket unsafe since it's dealing with unmanaged FFmpeg data everywhere.
 //
 // Usage: Constructor performs initial setup and configuration of codecs and muxer. Start() begins the codec and muxer
 // threads, also taking the path to the directory you want videos output to. Raw video/audio data may then be submitted
@@ -376,9 +376,9 @@ public unsafe class Encoder : IDisposable
                 if (ffmpeg.avcodec_send_frame(_videoCodecContext, frame) < 0)
                     throw new EncoderException("Error on attempting to encode video frame.");
 
-                // As per FFmpeg/libav documentation, it is technically permissible for an encoder to produce more than
-                // one packet per sent frame. I don't think the H264 codec does this, but for the sake of robustness
-                // I'll be implementing it as if it might.
+                // As per FFmpeg documentation, it is technically permissible for an encoder to produce more than one
+                // packet per sent frame. I don't think the H264 codec does this, but for the sake of robustness I'll
+                // be implementing it as if it might.
                 while (true)
                 {
                     if (packet == null) packet = ffmpeg.av_packet_alloc();
@@ -985,7 +985,7 @@ public unsafe class Encoder : IDisposable
         // Flag bitfield to pass to the video frame SWS context, to control how it is reformatted.
         int SwsFlags = ffmpeg.SWS_BILINEAR,
         
-        // Setting this to false makes the encoder ignore the next 3 entries, letting libav deal with it automatically.
+        // Setting this to false makes the encoder ignore the next 3 entries, letting FFmpeg deal with it automatically.
         bool UseColorspaceInformation = true,
         
         // Extra information about source colorspace. Defaults are good for sRGB color input.

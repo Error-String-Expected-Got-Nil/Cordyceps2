@@ -25,23 +25,22 @@ public static class Recording
     
     public static unsafe void Initialize()
     {
-        // TODO: Replace any mentions of "libav" with "ffmpeg" for the sake of clarity
-        var libavPath = Path.Combine(Cordyceps2Main.ModPath, "libav");
+        var ffmpegPath = Path.Combine(Cordyceps2Main.ModPath, "ffmpeg");
 
-        Log("Searching for binaries at path: " + libavPath);
+        Log("Searching for binaries at path: " + ffmpegPath);
         
-        if (!Directory.Exists(libavPath))
+        if (!Directory.Exists(ffmpegPath))
         {
-            Log("Failed to load libav binares, directory did not exist.");
+            Log("Failed to load FFmpeg binares, directory did not exist.");
             return;
         }
 
-        ffmpeg.RootPath = libavPath;
+        ffmpeg.RootPath = ffmpegPath;
         DynamicallyLoadedBindings.Initialize();
         
-        Log("libav version: " + ffmpeg.av_version_info());
+        Log("FFmpeg version: " + ffmpeg.av_version_info());
 
-        Log("Setting libav log callback.");
+        Log("Setting FFmpeg log callback.");
         av_log_set_callback_callback logCallback = (p0, level, format, v1) =>
         {
             if (level > ffmpeg.av_log_get_level()) return;
@@ -52,14 +51,14 @@ public static class Recording
             ffmpeg.av_log_format_line(p0, level, format, v1, linebuffer, linesize, &printPrefix);
             var line = Marshal.PtrToStringAnsi((IntPtr)linebuffer);
 
-            LogLibAv(line);
+            LogFFmpeg(line);
         };
         
         ffmpeg.av_log_set_callback(logCallback);
         
         Log("Bindings initialized.");
         BinariesLoaded = true;
-        SetLibAvLogLevel();
+        SetFFmpegLogLevel();
         
         // Need to attach the video capture script to *something,* and whatever object holds the mod's plugin is
         // probably fine. I don't think it should matter where it is, it just needs to exist somewhere.
@@ -274,12 +273,12 @@ public static class Recording
         else _stopRecordingHeld = false;
     }
     
-    public static void SetLibAvLogLevel()
+    public static void SetFFmpegLogLevel()
     {
         if (!BinariesLoaded) return;
-        ffmpeg.av_log_set_level(Cordyceps2Settings.LibAvLogLevelInt);
+        ffmpeg.av_log_set_level(Cordyceps2Settings.FFmpegLogLevelInt);
     }
 
     private static void Log(string str) => Debug.Log($"[Cordyceps2/Recording] {str}");
-    private static void LogLibAv(string str) => Debug.Log($"[Cordyceps2/Recording/libav] {str}");
+    private static void LogFFmpeg(string str) => Debug.Log($"[Cordyceps2/Recording/FFmpeg] {str}");
 }

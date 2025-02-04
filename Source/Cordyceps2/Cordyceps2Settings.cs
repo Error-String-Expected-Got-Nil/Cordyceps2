@@ -13,12 +13,12 @@ public class Cordyceps2Settings : OptionInterface
     private static readonly string[] OutputResolutions 
         = ["Native", "1920x1080"];
 
-    private static readonly string[] LibAvLogLevels 
+    private static readonly string[] FFmpegLogLevels 
         = ["quiet", "panic", "fatal", "error", "warning", "info", "verbose", "debug", "trace"];
     
     public static readonly Cordyceps2Settings Instance = new();
 
-    public static int LibAvLogLevelInt => LibAvLogLevel.Value switch
+    public static int FFmpegLogLevelInt => FFmpegLogLevel.Value switch
     {
         "quiet" => ffmpeg.AV_LOG_QUIET,
         "panic" => ffmpeg.AV_LOG_PANIC,
@@ -123,10 +123,10 @@ public class Cordyceps2Settings : OptionInterface
     
     // Extras Page
     // First column
-    public static Configurable<string> LibAvLogLevel =
-        Instance.config.Bind(nameof(LibAvLogLevel), "error", new ConfigurableInfo(
-            "libav logging level. Only for debugging purposes.",
-            new ConfigAcceptableList<string>(LibAvLogLevels)));
+    public static Configurable<string> FFmpegLogLevel =
+        Instance.config.Bind(nameof(FFmpegLogLevel), "error", new ConfigurableInfo(
+            "FFmpeg logging level. Only for debugging purposes.",
+            new ConfigAcceptableList<string>(FFmpegLogLevels)));
 
     public static Configurable<int> VideoBufferPoolDepth =
         Instance.config.Bind(nameof(VideoBufferPoolDepth), 10, new ConfigurableInfo(
@@ -274,10 +274,10 @@ public class Cordyceps2Settings : OptionInterface
         Tabs[2].AddItems(new UIelement[]
         {
             // First column
-            new OpLabel(10f, 575f, "libav Log Level")
-                {description = LibAvLogLevel.info.description},
-            new OpComboBox(LibAvLogLevel, new Vector2(150f, 570f), 120, LibAvLogLevels) 
-                {description = LibAvLogLevel.info.description},
+            new OpLabel(10f, 575f, "FFmpeg Log Level")
+                {description = FFmpegLogLevel.info.description},
+            new OpComboBox(FFmpegLogLevel, new Vector2(150f, 570f), 120, FFmpegLogLevels) 
+                {description = FFmpegLogLevel.info.description},
             
             new OpLabel(10f, 540f, "Video Buffer Pool Depth")
                 {description = VideoBufferPoolDepth.info.description},
@@ -296,7 +296,7 @@ public class Cordyceps2Settings : OptionInterface
                 {description = BitExactScaling.info.description},
         });
 
-        LibAvLogLevel.OnChange += Recording.SetLibAvLogLevel;
+        FFmpegLogLevel.OnChange += Recording.SetFFmpegLogLevel;
     }
 
     public static Vector2 GetRecordingInputResolution() => Custom.rainWorld.options.ScreenSize;

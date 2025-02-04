@@ -62,7 +62,7 @@ public class Cordyceps2Main : BaseUnityPlugin
 
         try
         {
-            Log("Registering libav binaries.");
+            Log("Registering FFmpeg binaries.");
             Recording.Initialize();
 
             _postInitialized = true;
