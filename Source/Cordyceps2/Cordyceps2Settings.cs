@@ -88,11 +88,6 @@ public class Cordyceps2Settings : OptionInterface
             "running at. Changing this off of Native will significantly increase encode time.", 
             new ConfigAcceptableList<string>(OutputResolutions)));
     
-    public static Configurable<bool> BitExactScaling =
-        Instance.config.Bind(nameof(BitExactScaling), false, new ConfigurableInfo(
-            "If enabled, certain approximations will be skipped when reformatting video frames for the " +
-            "encoder. Slower, but may produce a better image."));
-    
     // Second column
     public static Configurable<bool> EnableRecording =
         Instance.config.Bind(nameof(EnableRecording), true, new ConfigurableInfo(
@@ -144,6 +139,11 @@ public class Cordyceps2Settings : OptionInterface
         Instance.config.Bind(nameof(DoProfiling), true, new ConfigurableInfo(
             "If enabled, encoder will also track some profiling information, and print it to the log file " +
             "when recording ends."));
+    
+    public static Configurable<bool> BitExactScaling =
+        Instance.config.Bind(nameof(BitExactScaling), false, new ConfigurableInfo(
+            "If enabled, certain approximations will be skipped when reformatting video frames for the " +
+            "encoder. Slower, but may produce a better image."));
 
     public override void Initialize()
     {
@@ -227,11 +227,6 @@ public class Cordyceps2Settings : OptionInterface
             new OpComboBox(OutputResolution, new Vector2(150f, 500f), 120, OutputResolutions)
                 {description = OutputResolution.info.description},
             
-            new OpLabel(10f, 470f, "Bit Exact Scaling")
-                {description = BitExactScaling.info.description},
-            new OpCheckBox(BitExactScaling, new Vector2(150f, 465f))
-                {description = BitExactScaling.info.description},
-            
             // Second column
             new OpLabel(300f, 575f, "Enable Recording")
                 {description = EnableRecording.info.description},
@@ -294,6 +289,11 @@ public class Cordyceps2Settings : OptionInterface
                 {description = DoProfiling.info.description},
             new OpCheckBox(DoProfiling, new Vector2(450f, 570f))
                 {description = DoProfiling.info.description},
+            
+            new OpLabel(300f, 540f, "Bit Exact Scaling")
+                {description = BitExactScaling.info.description},
+            new OpCheckBox(BitExactScaling, new Vector2(450f, 535f))
+                {description = BitExactScaling.info.description},
         });
 
         LibAvLogLevel.OnChange += Recording.SetLibAvLogLevel;
