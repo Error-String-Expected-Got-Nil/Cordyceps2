@@ -180,6 +180,7 @@ public static class Recording
                         ? "0.00" 
                         : (RecordTime / Encoder.VideoEncodeTime).ToString("0.00")) 
                     + "x");
+                Log("Maximum video frames queued at once: " + Encoder.MaxVideoFramesQueued);
             
                 // TODO: Print audio profiling data if present
             }
