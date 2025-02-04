@@ -748,11 +748,15 @@ public unsafe class Encoder : IDisposable
             throw new EncoderException("Failed to open output AVIO context. Given filepath: " + outputPath);
         _outputFormatContext->pb = ctx;
         
+        AVDictionary* options = null;
+        if (VideoConfig.FragmentVideo) 
+            ffmpeg.av_dict_set(&options, "movflags", "+frag_keyframe", 0);
+        
         // This may or may not actually write anything to a file, but this must be called to initialize the muxer.
-        // TODO: Add options to make output mp4 fragmented in video settings
-        //  Would work by adding to options dictonary: "movflags" -> "+frag_keyframe+empty_moov"
-        if (ffmpeg.avformat_write_header(_outputFormatContext, null) < 0)
+        if (ffmpeg.avformat_write_header(_outputFormatContext, &options) < 0)
             throw new EncoderException("Failed to write output file header/initialize muxer.");
+        
+        ffmpeg.av_dict_free(&options);
 
         _muxerThread = Task.Run(MuxerThread);
         _muxerThread.ContinueWith(mthread =>
@@ -981,6 +985,8 @@ public unsafe class Encoder : IDisposable
         // the limit, GetVideoDataBuffer will return null instead. User is responsible for waiting before asking again.
         // Set to 0 to have no limit.
         int PoolDepth = 0,
+        
+        bool FragmentVideo = false,
         
         // Flag bitfield to pass to the video frame SWS context, to control how it is reformatted.
         int SwsFlags = ffmpeg.SWS_BILINEAR,

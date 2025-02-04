@@ -98,6 +98,11 @@ public class Cordyceps2Settings : OptionInterface
             "The frames per second value to record at.", 
             new ConfigAcceptableRange<int>(1, 300)));
 
+    public static Configurable<bool> FragmentVideo =
+        Instance.config.Bind(nameof(FragmentVideo), false, new ConfigurableInfo(
+            "If enabled, output video will be fragmented. This might prevent it from being corrupted if " +
+            "recording stops unexpectedly, but some video players can't read fragmented MP4s."));
+
     // Middle
     public static Configurable<string> RecordingOutputDirectory =
         Instance.config.Bind(nameof(RecordingOutputDirectory), "C:\\cordyceps2", new ConfigurableInfo(
@@ -237,6 +242,11 @@ public class Cordyceps2Settings : OptionInterface
                 {description = RecordingFps.info.description},
             new OpUpdown(RecordingFps, new Vector2(450f, 535f), 120)
                 {description = RecordingFps.info.description},
+            
+            new OpLabel(300f, 505f, "Fragment Video")
+                {description = FragmentVideo.info.description},
+            new OpCheckBox(FragmentVideo, new Vector2(450f, 500f))
+                {description = FragmentVideo.info.description},
             
             // Middle row
             new OpLabel(10f, 435f, "Output Directory")

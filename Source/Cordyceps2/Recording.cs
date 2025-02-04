@@ -150,6 +150,7 @@ public static class Recording
             true,
             true,
             Cordyceps2Settings.VideoBufferPoolDepth.Value,
+            Cordyceps2Settings.FragmentVideo.Value,
             Cordyceps2Settings.GetSwsFlags()
         );
     }

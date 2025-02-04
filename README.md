@@ -58,6 +58,12 @@ native resolution and upscale afterward, as it will look the same anyway.
 - **Recording FPS:** Framerate to record at. There is no practical benefit to recording any more than the default of 40
 FPS, since recording is synced to the game's tickrate, and 40 Hz is the highest normal tickrate.
 
+- **Fragment Video:** Ordinarily, the metadata and headers for data in the video is written all at once, in a single 
+place. Fragmenting the video instead places it throughout the video file, next to where it's used. If recording is 
+stopped unexecpectedly (for instance, from the game crashing), this might prevent the video from being corrupted and 
+unrecoverable. However, fragmented video isn't as universally supported as non-fragmented video (Discord appears to 
+support it fine, if that's a concern). Cordyceps2 will output a fragment on each keyframe.
+
 - **Output Directory:** Directory to put recorded videos into. Already explained earlier in this section, and by the 
 description box below this option in the actual settings menu,
 
@@ -94,5 +100,5 @@ encoder is able to keep up with the amount of incoming video data. Useful as a m
 can make the encoder settings.
 
 - **Bit Exact Scaling:** Adds the flags SWS_ACCURATE_RND and SWS_BITEXACT to the encoder's libswscale frame scaler.
-I'm not sure that this actually has any effect for Cordyceps2's use-case, and I only added this to test it myself, and
+I'm not sure that this actually has any effect for Cordyceps2's use-case; I only added this to test it myself, and
 just decided it was easier to move it here than take it out again. Has a notable performance cost.
