@@ -299,11 +299,7 @@ public class Cordyceps2Settings : OptionInterface
         LibAvLogLevel.OnChange += Recording.SetLibAvLogLevel;
     }
 
-    public static Vector2 GetRecordingInputResolution()
-    {
-        // TODO: Apply modifier if upscaling captured texture
-        return Custom.rainWorld.options.ScreenSize;
-    }
+    public static Vector2 GetRecordingInputResolution() => Custom.rainWorld.options.ScreenSize;
 
     public static Vector2 GetRecordingOutputResolution()
     {
