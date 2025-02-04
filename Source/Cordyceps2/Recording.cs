@@ -25,6 +25,7 @@ public static class Recording
     
     public static unsafe void Initialize()
     {
+        // TODO: Replace any mentions of "libav" with "ffmpeg" for the sake of clarity
         var libavPath = Path.Combine(Cordyceps2Main.ModPath, "libav");
 
         Log("Searching for binaries at path: " + libavPath);
