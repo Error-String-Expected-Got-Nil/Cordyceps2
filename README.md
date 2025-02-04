@@ -55,17 +55,17 @@ encoder cannot create quality from nothing; native resolution is the best the vi
 1920x1080 simply upscales it. This is rather performance-intensive, and it's probably a better idea to simply record at 
 native resolution and upscale afterward, as it will look the same anyway.
 
-- **Recording FPS:** Framerate to record at. There is no practical benefit to recording any more than the default of 40
-FPS, since recording is synced to the game's tickrate, and 40 Hz is the highest normal tickrate.
+- **Recording FPS:** Framerate to record at. There is no practical benefit to recording at any more than the default of 
+40 FPS, since recording is synced to the game's tickrate, and 40 Hz is the highest normal tickrate.
 
-- **Fragment Video:** Ordinarily, the metadata and headers for data in the video is written all at once, in a single 
-place. Fragmenting the video instead places it throughout the video file, next to where it's used. If recording is 
+- **Fragment Video:** Ordinarily, the metadata and headers for data in the video are written all at once, in a single 
+place. Fragmenting the video instead places them throughout the video file, next to where it's used. If recording is 
 stopped unexecpectedly (for instance, from the game crashing), this might prevent the video from being corrupted and 
 unrecoverable. However, fragmented video isn't as universally supported as non-fragmented video (Discord appears to 
 support it fine, if that's a concern). Cordyceps2 will output a fragment on each keyframe.
 
 - **Output Directory:** Directory to put recorded videos into. Already explained earlier in this section, and by the 
-description box below this option in the actual settings menu,
+description box below this option in the actual settings menu.
 
 - **Keyframe Interval:** Modern video formats utilize a technique where, rather than saving the entirety of every frame,
 they mostly save the differences between frames, with only a few "keyframes" that contain a full image. This value is
