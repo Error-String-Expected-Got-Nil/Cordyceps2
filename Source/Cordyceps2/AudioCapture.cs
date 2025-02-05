@@ -28,7 +28,7 @@ public class AudioCapture : MonoBehaviour
     private void OnAudioFilterRead(float[] data, int channels)
     {
         // Consider the following:
-        //  This is an exaggerated depcition of the timeline of game ticks (top) versus the timeline of audio filter
+        //  This is an exaggerated depiction of the timeline of game ticks (top) versus the timeline of audio filter
         // read events (bottom).
         // +----------------------------------+----------------------------------+----------------------------------+
         // |      |      |      |      |      |      |      |      |      |      |      |      |      |      |      |
