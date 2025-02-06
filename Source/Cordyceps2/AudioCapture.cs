@@ -88,7 +88,7 @@ public class AudioCapture : MonoBehaviour
         var timestamp = Stopwatch.GetTimestamp();
         var timeFactor = 1.0f; // TODO: Set to the time dialation factor from TimeControl when that's added
         // TODO: Time dialation factor should be set at the START OF EACH UPDATE ONLY, not on raw updates, and this is
-        //  what AudioCapture should check!
+        //  what AudioCapture should check! Furthermore, this should be the case for all audio syncing operations
         var currentRequest = _requestedSamples;
 
         // If timeFactor was 0, no actual audio played this frame, so we don't do anything.
