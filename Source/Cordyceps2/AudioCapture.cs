@@ -115,6 +115,7 @@ public class AudioCapture : MonoBehaviour
         
         if (currentRequest == 0)
         {
+            // TODO: If there is any excess, fill the intermediate into the excess buffer and return without going idle
             _idleExcessBuffer.Push(_intermediateSampleBuffer, 0, _intermediateSampleCount);
             _idle = true;
             return;
@@ -208,12 +209,13 @@ public class AudioCapture : MonoBehaviour
     // Zeroes out any un-filled space in the submit buffer, then submits it.
     public void FlushSubmitBuffer()
     {
+        FillSubmitBuffer(_continuousExcessBuffer, _lastReadExcess);
+        _lastReadExcess = 0;
         if (_submitBuffer == null) return;
         Array.Clear(_submitBuffer, _filledBytes, _submitBuffer.Length - _filledBytes);
         Recording.Encoder.SubmitAudioData(_submitBuffer);
         _submitBuffer = null;
         _filledBytes = 0;
-        _lastReadExcess = 0;
     }
 
     private class CircularSampleBuffer(int size)
