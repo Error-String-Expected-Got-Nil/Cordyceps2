@@ -73,6 +73,7 @@ public static class TimeControl
         {
             if (!CanAffectTickrate()) return originalReturn;
             
+            // TODO: Promote this to a static field, decouple TimeSpeedFac from modified tickrate
             var timeDialationFactor = game.framesPerSecond / (double) UnmodifiedTickrate;
             return originalReturn * timeDialationFactor;
         }
