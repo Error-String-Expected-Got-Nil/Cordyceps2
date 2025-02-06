@@ -93,6 +93,8 @@ public class Cordyceps2Settings : OptionInterface
         Instance.config.Bind(nameof(EnableRecording), true, new ConfigurableInfo(
             "Uncheck this to prevent recording from starting."));
     
+    // TODO: There might be problems if the recording FPS is higher than the actual true framerate of the game, since
+    //  the current system only records one frame per true frame that passes. Need to account for that somehow.
     public static Configurable<int> RecordingFps =
         Instance.config.Bind(nameof(RecordingFps), 40, new ConfigurableInfo(
             "The frames per second value to record at.", 
