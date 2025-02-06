@@ -108,14 +108,8 @@ public class AudioCapture : MonoBehaviour
             }
         }
         
-        // TODO: Code currently assumes that the audio framerate is never any less than half the game's base tickrate.
-        //  This is NOT necessarily true if there are factors affecting the base tickrate, such as a mushroom or an
-        //  echo. Need to refactor some to account for this; main thing should be that the continuous excess buffer
-        //  should be a List<byte> rather than a fixed-size array.
-        
         if (currentRequest == 0)
         {
-            // TODO: If there is any excess, fill the intermediate into the excess buffer and return without going idle
             _idleExcessBuffer.Push(_intermediateSampleBuffer, 0, _intermediateSampleCount);
             _idle = true;
             return;
@@ -209,7 +203,8 @@ public class AudioCapture : MonoBehaviour
     // Zeroes out any un-filled space in the submit buffer, then submits it.
     public void FlushSubmitBuffer()
     {
-        FillSubmitBuffer(_continuousExcessBuffer, _lastReadExcess);
+        // This needs to be reset in case recording starts again so that stale samples in the excess buffer aren't used
+        // when the next recording starts.
         _lastReadExcess = 0;
         if (_submitBuffer == null) return;
         Array.Clear(_submitBuffer, _filledBytes, _submitBuffer.Length - _filledBytes);
@@ -227,7 +222,7 @@ public class AudioCapture : MonoBehaviour
         {
             var remainingSpace = size - _top;
         
-            if (count < remainingSpace) 
+            if (count <= remainingSpace) 
                 Array.Copy(source, start, _buffer, _top, count);
             else
             {
