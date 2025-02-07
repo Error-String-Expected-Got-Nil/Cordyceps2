@@ -18,13 +18,13 @@ public class AudioCapture : MonoBehaviour
     private CircularSampleBuffer _idleExcessBuffer; // Excess buffer used when there's no request
     private bool _idle = true; // Flag indicating if there was no request last read
     private float[] _continuousExcessBuffer; // Excess buffer used when there are continuous requests
-    private int _lastReadExcess; // Number of excess samples in the continuous buffer from the last read 
+    private int _lastReadExcess; // Number of excess double samples in the continuous buffer from the last read 
     
     // Portion of samples read each frame that are considered "new", this is not necessarily *every* sample read that
     // frame, as playing in slow motion will extend the length of every playing audio source. For example, playing the
     // game at half speed doubles the true, real-time length of every sound, meaning we only take half of read samples.
     private float[] _intermediateSampleBuffer;
-    private int _intermediateSampleCount;
+    private int _intermediateSampleCount; // Double samples
     private float _intermediateSampleCounter;
 
     private int _sampleRate;
@@ -128,8 +128,8 @@ public class AudioCapture : MonoBehaviour
         }
         else if (_lastReadExcess > 0)
         {
-            var excessFillAmount = Math.Min(_lastReadExcess, currentRequest);
-            FillSubmitBuffer(_continuousExcessBuffer, excessFillAmount * 2);
+            var excessFillAmount = Math.Min(_lastReadExcess, currentRequest * 2);
+            FillSubmitBuffer(_continuousExcessBuffer, excessFillAmount);
             _lastReadExcess -= excessFillAmount;
             if (_lastReadExcess != 0) 
                 Log("WARN - Continuous excess sample count was not 0 after being used to fill current request. " +
@@ -139,9 +139,9 @@ public class AudioCapture : MonoBehaviour
             Interlocked.Add(ref _requestedSamples, -excessFillAmount);
         }
 
-        var intermediateFillAmount = Math.Min(_intermediateSampleCount, currentRequest);
-        FillSubmitBuffer(_intermediateSampleBuffer, intermediateFillAmount * 2);
-        Interlocked.Add(ref _requestedSamples, -intermediateFillAmount);
+        var intermediateFillAmount = Math.Min(_intermediateSampleCount, currentRequest * 2);
+        FillSubmitBuffer(_intermediateSampleBuffer, intermediateFillAmount);
+        Interlocked.Add(ref _requestedSamples, -(intermediateFillAmount / 2));
         var excessSamples = _intermediateSampleCount - intermediateFillAmount;
         Array.Copy(_intermediateSampleBuffer, _intermediateSampleCount - excessSamples,
             _continuousExcessBuffer, 0, excessSamples);
@@ -206,6 +206,7 @@ public class AudioCapture : MonoBehaviour
         // This needs to be reset in case recording starts again so that stale samples in the excess buffer aren't used
         // when the next recording starts.
         _lastReadExcess = 0;
+        _intermediateSampleCounter = 0;
         if (_submitBuffer == null) return;
         Array.Clear(_submitBuffer, _filledBytes, _submitBuffer.Length - _filledBytes);
         Recording.Encoder.SubmitAudioData(_submitBuffer);
