@@ -46,7 +46,7 @@ suggest trying out some more strenuous settings and seeing how the game performs
 lag, you should be completely fine to use them.
 
 ### Recording Settings
-The following are some more detailed notes and technical explanations for the various settings available for configuring
+The following are some more detailed notes and technical explanations for the various settings available when configuring
 the video encoder. Not necessary to just use Cordyceps2, but may be of interest.
 
 - **Output Resolution:** Resolution to scale the output video to. "Native" means the resolution the game is actually 
@@ -60,7 +60,7 @@ native resolution and upscale afterward, as it will look the same anyway.
 
 - **Fragment Video:** Ordinarily, the metadata and headers for data in the video are written all at once, in a single 
 place. Fragmenting the video instead places them throughout the video file, next to where it's used. If recording is 
-stopped unexecpectedly (for instance, from the game crashing), this might prevent the video from being corrupted and 
+stopped unexpectedly (for instance, from the game crashing), this might prevent the video from being corrupted and 
 unrecoverable. However, fragmented video isn't as universally supported as non-fragmented video (Discord appears to 
 support it fine, if that's a concern). Cordyceps2 will output a fragment on each keyframe.
 
