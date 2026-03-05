@@ -57,6 +57,10 @@ public class AudioCapture : MonoBehaviour
 
     // TODO: Loading screens seem to result in some kind of desync that corrupts the audio recording, need to
     //  investigate further; Possibly due to use of idle excess buffer without flushing continuous excess buffer?
+    
+    // TODO: Should audio processing be in its own thread, where the only thing this does directly is copy the data
+    //  over? I think audio output is delayed until these events complete, so that could cause issues if this processing
+    //  takes too long
     private void OnAudioFilterRead(float[] data, int channels)
     {
         // Consider the following:
