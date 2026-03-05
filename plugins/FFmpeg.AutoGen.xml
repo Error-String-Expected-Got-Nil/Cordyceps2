@@ -339,6 +339,11 @@
             <summary>This is the inverse function of av_channel_name().</summary>
             <returns>the channel with the given name AV_CHAN_NONE when name does not identify a known channel</returns>
         </member>
+        <member name="M:FFmpeg.AutoGen.ffmpeg.av_channel_layout_ambisonic_order(FFmpeg.AutoGen.AVChannelLayout*)">
+            <summary>Return the order if the layout is n-th order standard-order ambisonic. The presence of optional extra non-diegetic channels at the end is not taken into account.</summary>
+            <param name="channel_layout">input channel layout</param>
+            <returns>the order of the layout, a negative error code otherwise.</returns>
+        </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.av_channel_layout_channel_from_index(FFmpeg.AutoGen.AVChannelLayout*,System.UInt32)">
             <summary>Get the channel with the given index in a channel layout.</summary>
             <param name="channel_layout">input channel layout</param>
@@ -886,13 +891,26 @@
             <summary>Ensure the destination frame refers to the same data described by the source frame, either by creating a new reference for each AVBufferRef from src if they differ from those in dst, by allocating new buffers and copying data if src is not reference counted, or by unrefencing it if src is empty.</summary>
             <returns>0 on success, a negative AVERROR on error. On error, dst is unreferenced.</returns>
         </member>
+        <member name="M:FFmpeg.AutoGen.ffmpeg.av_frame_side_data_add(FFmpeg.AutoGen.AVFrameSideData***,System.Int32*,FFmpeg.AutoGen.AVFrameSideDataType,FFmpeg.AutoGen.AVBufferRef**,System.UInt32)">
+            <summary>Add a new side data entry to an array from an existing AVBufferRef.</summary>
+            <param name="sd">pointer to array of side data to which to add another entry, or to NULL in order to start a new array.</param>
+            <param name="nb_sd">pointer to an integer containing the number of entries in the array.</param>
+            <param name="type">type of the added side data</param>
+            <param name="buf">Pointer to AVBufferRef to add to the array. On success, the function takes ownership of the AVBufferRef and *buf is set to NULL, unless AV_FRAME_SIDE_DATA_FLAG_NEW_REF is set in which case the ownership will remain with the caller.</param>
+            <param name="flags">Some combination of AV_FRAME_SIDE_DATA_FLAG_* flags, or 0.</param>
+            <returns>newly added side data on success, NULL on error.</returns>
+        </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.av_frame_side_data_clone(FFmpeg.AutoGen.AVFrameSideData***,System.Int32*,FFmpeg.AutoGen.AVFrameSideData*,System.UInt32)">
             <summary>Add a new side data entry to an array based on existing side data, taking a reference towards the contained AVBufferRef.</summary>
             <param name="sd">pointer to array of side data to which to add another entry, or to NULL in order to start a new array.</param>
             <param name="nb_sd">pointer to an integer containing the number of entries in the array.</param>
             <param name="src">side data to be cloned, with a new reference utilized for the buffer.</param>
             <param name="flags">Some combination of AV_FRAME_SIDE_DATA_FLAG_* flags, or 0.</param>
-            <returns>negative error code on failure, &gt;=0 on success. In case of AV_FRAME_SIDE_DATA_FLAG_UNIQUE being set, entries of matching AVFrameSideDataType will be removed before the addition is attempted.</returns>
+            <returns>negative error code on failure, &gt;=0 on success.</returns>
+        </member>
+        <member name="M:FFmpeg.AutoGen.ffmpeg.av_frame_side_data_desc(FFmpeg.AutoGen.AVFrameSideDataType)">
+            <summary>Returns side data descriptor corresponding to a given side data type, NULL when not available.</summary>
+            <returns>side data descriptor corresponding to a given side data type, NULL when not available.</returns>
         </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.av_frame_side_data_free(FFmpeg.AutoGen.AVFrameSideData***,System.Int32*)">
             <summary>Free all side data entries and their contents, then zeroes out the values which the pointers are pointing to.</summary>
@@ -917,7 +935,10 @@
             <param name="type">type of the added side data</param>
             <param name="size">size of the side data</param>
             <param name="flags">Some combination of AV_FRAME_SIDE_DATA_FLAG_* flags, or 0.</param>
-            <returns>newly added side data on success, NULL on error. In case of AV_FRAME_SIDE_DATA_FLAG_UNIQUE being set, entries of matching AVFrameSideDataType will be removed before the addition is attempted.</returns>
+            <returns>newly added side data on success, NULL on error.</returns>
+        </member>
+        <member name="M:FFmpeg.AutoGen.ffmpeg.av_frame_side_data_remove(FFmpeg.AutoGen.AVFrameSideData***,System.Int32*,FFmpeg.AutoGen.AVFrameSideDataType)">
+            <summary>Remove and free all side data instances of the given type from an array.</summary>
         </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.av_frame_unref(FFmpeg.AutoGen.AVFrame*)">
             <summary>Unreference all the buffers referenced by frame and reset the frame fields.</summary>
@@ -1469,6 +1490,10 @@
             <summary>Allocate an AVMasteringDisplayMetadata structure and set its fields to default values. The resulting struct can be freed using av_freep().</summary>
             <returns>An AVMasteringDisplayMetadata filled with default values or NULL on failure.</returns>
         </member>
+        <member name="M:FFmpeg.AutoGen.ffmpeg.av_mastering_display_metadata_alloc_size(System.UInt64*)">
+            <summary>Allocate an AVMasteringDisplayMetadata structure and set its fields to default values. The resulting struct can be freed using av_freep().</summary>
+            <returns>An AVMasteringDisplayMetadata filled with default values or NULL on failure.</returns>
+        </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.av_mastering_display_metadata_create_side_data(FFmpeg.AutoGen.AVFrame*)">
             <summary>Allocate a complete AVMasteringDisplayMetadata and add it to the frame.</summary>
             <param name="frame">The frame which side data is added to.</param>
@@ -1581,6 +1606,19 @@
             <param name="out_val">value of the option will be written here</param>
             <returns>&gt;=0 on success, a negative error code otherwise</returns>
         </member>
+        <member name="M:FFmpeg.AutoGen.ffmpeg.av_opt_get_array(System.Void*,System.String,System.Int32,System.UInt32,System.UInt32,FFmpeg.AutoGen.AVOptionType,System.Void*)">
+            <summary>For an array-type option, retrieve the values of one or more array elements.</summary>
+            <param name="start_elem">index of the first array element to retrieve</param>
+            <param name="nb_elems">number of array elements to retrieve; start_elem+nb_elems must not be larger than array size as returned by av_opt_get_array_size()</param>
+            <param name="out_type">Option type corresponding to the desired output.</param>
+            <param name="out_val">Array with nb_elems members into which the output will be written. The array type must match the underlying C type as documented for out_type, and be zeroed on entry to this function.</param>
+        </member>
+        <member name="M:FFmpeg.AutoGen.ffmpeg.av_opt_get_array_size(System.Void*,System.String,System.Int32,System.UInt32*)">
+            <summary>For an array-type option, get the number of elements in the array.</summary>
+        </member>
+        <member name="M:FFmpeg.AutoGen.ffmpeg.av_opt_get_chlayout(System.Void*,System.String,System.Int32,FFmpeg.AutoGen.AVChannelLayout*)">
+            <param name="layout">The returned layout is a copy of the actual value and must be freed with av_channel_layout_uninit() by the caller</param>
+        </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.av_opt_get_dict_val(System.Void*,System.String,System.Int32,FFmpeg.AutoGen.AVDictionary**)">
             <param name="out_val">The returned dictionary is a copy of the actual value and must be freed with av_dict_free() by the caller</param>
         </member>
@@ -1643,6 +1681,13 @@
             <param name="val">The value to set. In case of av_opt_set() if the field is not of a string type, then the given string is parsed. SI postfixes and some named scalars are supported. If the field is of a numeric type, it has to be a numeric or named scalar. Behavior with more than one scalar and +- infix operators is undefined. If the field is of a flags type, it has to be a sequence of numeric scalars or named flags separated by &apos;+&apos; or &apos;-&apos;. Prefixing a flag with &apos;+&apos; causes it to be set without affecting the other flags; similarly, &apos;-&apos; unsets a flag. If the field is of a dictionary type, it has to be a &apos;:&apos; separated list of key=value parameters. Values containing &apos;:&apos; special characters must be escaped.</param>
             <param name="search_flags">flags passed to av_opt_find2. I.e. if AV_OPT_SEARCH_CHILDREN is passed here, then the option may be set on a child of obj.</param>
             <returns>0 if the value has been set, or an AVERROR code in case of error: AVERROR_OPTION_NOT_FOUND if no matching option exists AVERROR(ERANGE) if the value is out of range AVERROR(EINVAL) if the value is not valid</returns>
+        </member>
+        <member name="M:FFmpeg.AutoGen.ffmpeg.av_opt_set_array(System.Void*,System.String,System.Int32,System.UInt32,System.UInt32,FFmpeg.AutoGen.AVOptionType,System.Void*)">
+            <summary>Add, replace, or remove elements for an array option. Which of these operations is performed depends on the values of val and search_flags.</summary>
+            <param name="start_elem">Index of the first array element to modify; must not be larger than array size as returned by av_opt_get_array_size().</param>
+            <param name="nb_elems">number of array elements to modify; when val is NULL, start_elem+nb_elems must not be larger than array size as returned by av_opt_get_array_size()</param>
+            <param name="val_type">Option type corresponding to the type of val, ignored when val is NULL.</param>
+            <param name="val">Array with nb_elems elements or NULL.</param>
         </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.av_opt_set_defaults(System.Void*)">
             <summary>Set the values of all AVOption fields to their default values.</summary>
@@ -2113,10 +2158,6 @@
         <member name="M:FFmpeg.AutoGen.ffmpeg.av_stream_get_class">
             <summary>Get the AVClass for AVStream. It can be used in combination with AV_OPT_SEARCH_FAKE_OBJ for examining options.</summary>
         </member>
-        <member name="M:FFmpeg.AutoGen.ffmpeg.av_stream_get_codec_timebase(FFmpeg.AutoGen.AVStream*)">
-            <summary>Get the internal codec timebase from a stream.</summary>
-            <param name="st">input stream to extract the timebase from</param>
-        </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.av_stream_get_side_data(FFmpeg.AutoGen.AVStream*,FFmpeg.AutoGen.AVPacketSideDataType,System.UInt64*)">
             <summary>Get side information from stream.</summary>
             <param name="stream">stream</param>
@@ -2432,6 +2473,15 @@
         </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.avcodec_get_subtitle_rect_class">
             <summary>Get the AVClass for AVSubtitleRect. It can be used in combination with AV_OPT_SEARCH_FAKE_OBJ for examining options.</summary>
+        </member>
+        <member name="M:FFmpeg.AutoGen.ffmpeg.avcodec_get_supported_config(FFmpeg.AutoGen.AVCodecContext*,FFmpeg.AutoGen.AVCodec*,FFmpeg.AutoGen.AVCodecConfig,System.UInt32,System.Void**,System.Int32*)">
+            <summary>Retrieve a list of all supported values for a given configuration type.</summary>
+            <param name="avctx">An optional context to use. Values such as `strict_std_compliance` may affect the result. If NULL, default values are used.</param>
+            <param name="codec">The codec to query, or NULL to use avctx-&gt;codec.</param>
+            <param name="config">The configuration to query.</param>
+            <param name="flags">Currently unused; should be set to zero.</param>
+            <param name="out_configs">On success, set to a list of configurations, terminated by a config-specific terminator, or NULL if all possible values are supported.</param>
+            <param name="out_num_configs">On success, set to the number of elements in out_configs, excluding the terminator. Optional.</param>
         </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.avcodec_get_type(FFmpeg.AutoGen.AVCodecID)">
             <summary>Get the type of the given codec.</summary>
@@ -2881,13 +2931,6 @@
         <member name="M:FFmpeg.AutoGen.ffmpeg.avformat_stream_group_name(FFmpeg.AutoGen.AVStreamGroupParamsType)">
             <summary>Returns a string identifying the stream group type, or NULL if unknown</summary>
             <returns>a string identifying the stream group type, or NULL if unknown</returns>
-        </member>
-        <member name="M:FFmpeg.AutoGen.ffmpeg.avformat_transfer_internal_stream_timing_info(FFmpeg.AutoGen.AVOutputFormat*,FFmpeg.AutoGen.AVStream*,FFmpeg.AutoGen.AVStream*,FFmpeg.AutoGen.AVTimebaseSource)">
-            <summary>Transfer internal timing information from one stream to another.</summary>
-            <param name="ofmt">target output format for ost</param>
-            <param name="ost">output stream which needs timings copy and adjustments</param>
-            <param name="ist">reference input stream to copy timings from</param>
-            <param name="copy_tb">define from where the stream codec timebase needs to be imported</param>
         </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.avformat_version">
             <summary>Return the LIBAVFORMAT_VERSION_INT constant.</summary>
@@ -3499,12 +3542,6 @@
         <member name="M:FFmpeg.AutoGen.ffmpeg.av_make_q(System.Int32,System.Int32)">
             <summary>Create an AVRational.</summary>
         </member>
-        <member name="M:FFmpeg.AutoGen.ffmpeg.av_mod_uintp2_c(System.UInt32,System.UInt32)">
-            <summary>Clear high bits from an unsigned integer starting with specific bit position</summary>
-            <param name="a">value to clip</param>
-            <param name="p">bit position to clip at</param>
-            <returns>clipped value</returns>
-        </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.av_popcount_c(System.UInt32)">
             <summary>Count number of bits set to one in x</summary>
             <param name="x">value to count bits of</param>
@@ -3558,6 +3595,12 @@
         </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.av_x_if_null(System.Void*,System.Void*)">
             <summary>Return x default pointer in case p is NULL.</summary>
+        </member>
+        <member name="M:FFmpeg.AutoGen.ffmpeg.av_zero_extend_c(System.UInt32,System.UInt32)">
+            <summary>Clear high bits from an unsigned integer starting with specific bit position</summary>
+            <param name="a">value to clip</param>
+            <param name="p">bit position to clip at. Must be between 0 and 31.</param>
+            <returns>clipped value</returns>
         </member>
         <member name="M:FFmpeg.AutoGen.ffmpeg.avio_tell(FFmpeg.AutoGen.AVIOContext*)">
             <summary>ftell() equivalent for AVIOContext.</summary>
@@ -3734,6 +3777,12 @@
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CH_SIDE_RIGHT">
             <summary>AV_CH_SIDE_RIGHT = (1ULL &lt;&lt; AV_CHAN_SIDE_RIGHT           )</summary>
         </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CH_SIDE_SURROUND_LEFT">
+            <summary>AV_CH_SIDE_SURROUND_LEFT = (1ULL &lt;&lt; AV_CHAN_SIDE_SURROUND_LEFT   )</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CH_SIDE_SURROUND_RIGHT">
+            <summary>AV_CH_SIDE_SURROUND_RIGHT = (1ULL &lt;&lt; AV_CHAN_SIDE_SURROUND_RIGHT  )</summary>
+        </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CH_STEREO_LEFT">
             <summary>AV_CH_STEREO_LEFT = (1ULL &lt;&lt; AV_CHAN_STEREO_LEFT          )</summary>
         </member>
@@ -3772,6 +3821,12 @@
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CH_TOP_SIDE_RIGHT">
             <summary>AV_CH_TOP_SIDE_RIGHT = (1ULL &lt;&lt; AV_CHAN_TOP_SIDE_RIGHT       )</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CH_TOP_SURROUND_LEFT">
+            <summary>AV_CH_TOP_SURROUND_LEFT = (1ULL &lt;&lt; AV_CHAN_TOP_SURROUND_LEFT    )</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CH_TOP_SURROUND_RIGHT">
+            <summary>AV_CH_TOP_SURROUND_RIGHT = (1ULL &lt;&lt; AV_CHAN_TOP_SURROUND_RIGHT   )</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CH_WIDE_LEFT">
             <summary>AV_CH_WIDE_LEFT = (1ULL &lt;&lt; AV_CHAN_WIDE_LEFT            )</summary>
@@ -3838,6 +3893,9 @@
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CODEC_CAP_VARIABLE_FRAME_SIZE">
             <summary>AV_CODEC_CAP_VARIABLE_FRAME_SIZE = (1 &lt;&lt; 16)</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CODEC_EXPORT_DATA_ENHANCEMENTS">
+            <summary>AV_CODEC_EXPORT_DATA_ENHANCEMENTS = 0x1 &lt;&lt; 0x4</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CODEC_EXPORT_DATA_FILM_GRAIN">
             <summary>AV_CODEC_EXPORT_DATA_FILM_GRAIN = 0x1 &lt;&lt; 0x3</summary>
@@ -4067,6 +4125,15 @@
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CPU_FLAG_POWER8">
             <summary>AV_CPU_FLAG_POWER8 = 0x4</summary>
         </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CPU_FLAG_RV_MISALIGNED">
+            <summary>AV_CPU_FLAG_RV_MISALIGNED = 0x1 &lt;&lt; 0xa</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CPU_FLAG_RV_ZVBB">
+            <summary>AV_CPU_FLAG_RV_ZVBB = 0x1 &lt;&lt; 0x9</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CPU_FLAG_RVB">
+            <summary>AV_CPU_FLAG_RVB = 0x1 &lt;&lt; 0xb</summary>
+        </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_CPU_FLAG_RVB_ADDR">
             <summary>AV_CPU_FLAG_RVB_ADDR = 0x1 &lt;&lt; 0x8</summary>
         </member>
@@ -4202,6 +4269,9 @@
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_DISPOSITION_METADATA">
             <summary>AV_DISPOSITION_METADATA = (1 &lt;&lt; 18)</summary>
         </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_DISPOSITION_MULTILAYER">
+            <summary>AV_DISPOSITION_MULTILAYER = (1 &lt;&lt; 21)</summary>
+        </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_DISPOSITION_NON_DIEGETIC">
             <summary>AV_DISPOSITION_NON_DIEGETIC = (1 &lt;&lt; 12)</summary>
         </member>
@@ -4264,6 +4334,9 @@
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_FRAME_FLAG_TOP_FIELD_FIRST">
             <summary>AV_FRAME_FLAG_TOP_FIELD_FIRST = (1 &lt;&lt; 4)</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_FRAME_SIDE_DATA_FLAG_REPLACE">
+            <summary>AV_FRAME_SIDE_DATA_FLAG_REPLACE = (1 &lt;&lt; 1)</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_FRAME_SIDE_DATA_FLAG_UNIQUE">
             <summary>AV_FRAME_SIDE_DATA_FLAG_UNIQUE = (1 &lt;&lt; 0)</summary>
@@ -4352,6 +4425,9 @@
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_OPT_ALLOW_NULL">
             <summary>AV_OPT_ALLOW_NULL = (1 &lt;&lt; 2)</summary>
         </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_OPT_ARRAY_REPLACE">
+            <summary>AV_OPT_ARRAY_REPLACE = (1 &lt;&lt; 3)</summary>
+        </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_OPT_FLAG_AUDIO_PARAM">
             <summary>AV_OPT_FLAG_AUDIO_PARAM = (1 &lt;&lt; 3)</summary>
         </member>
@@ -4399,6 +4475,9 @@
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_OPT_SERIALIZE_OPT_FLAGS_EXACT">
             <summary>AV_OPT_SERIALIZE_OPT_FLAGS_EXACT = 0x00000002</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_OPT_SERIALIZE_SEARCH_CHILDREN">
+            <summary>AV_OPT_SERIALIZE_SEARCH_CHILDREN = 0x00000004</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_OPT_SERIALIZE_SKIP_DEFAULTS">
             <summary>AV_OPT_SERIALIZE_SKIP_DEFAULTS = 0x00000001</summary>
@@ -4477,6 +4556,9 @@
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_PROFILE_AAC_SSR">
             <summary>AV_PROFILE_AAC_SSR = 2</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_PROFILE_AAC_USAC">
+            <summary>AV_PROFILE_AAC_USAC = 41</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_PROFILE_ARIB_PROFILE_A">
             <summary>AV_PROFILE_ARIB_PROFILE_A = 0</summary>
@@ -4603,6 +4685,9 @@
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_PROFILE_HEVC_MAIN_STILL_PICTURE">
             <summary>AV_PROFILE_HEVC_MAIN_STILL_PICTURE = 3</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AV_PROFILE_HEVC_MULTIVIEW_MAIN">
+            <summary>AV_PROFILE_HEVC_MULTIVIEW_MAIN = 6</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AV_PROFILE_HEVC_REXT">
             <summary>AV_PROFILE_HEVC_REXT = 4</summary>
@@ -4852,6 +4937,9 @@
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AVERROR_HTTP_SERVER_ERROR">
             <summary>AVERROR_HTTP_SERVER_ERROR = FFERRTAG(0xF8,&apos;5&apos;,&apos;X&apos;,&apos;X&apos;)</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.AVERROR_HTTP_TOO_MANY_REQUESTS">
+            <summary>AVERROR_HTTP_TOO_MANY_REQUESTS = FFERRTAG(0xF8,&apos;4&apos;,&apos;2&apos;,&apos;9&apos;)</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.AVERROR_HTTP_UNAUTHORIZED">
             <summary>AVERROR_HTTP_UNAUTHORIZED = FFERRTAG(0xF8,&apos;4&apos;,&apos;0&apos;,&apos;1&apos;)</summary>
@@ -5165,11 +5253,17 @@
         <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_INTERLACED_FRAME">
             <summary>FF_API_INTERLACED_FRAME = (LIBAVUTIL_VERSION_MAJOR &lt; 60)</summary>
         </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_INTERNAL_TIMING">
+            <summary>FF_API_INTERNAL_TIMING = (LIBAVFORMAT_VERSION_MAJOR &lt; 62)</summary>
+        </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_LAVF_SHORTEST">
             <summary>FF_API_LAVF_SHORTEST = (LIBAVFORMAT_VERSION_MAJOR &lt; 62)</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_LINK_PUBLIC">
             <summary>FF_API_LINK_PUBLIC = LIBAVFILTER_VERSION_MAJOR &lt; 0xb</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_MOD_UINTP2">
+            <summary>FF_API_MOD_UINTP2 = (LIBAVUTIL_VERSION_MAJOR &lt; 60)</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_OPENGL_DEVICE">
             <summary>FF_API_OPENGL_DEVICE = (LIBAVDEVICE_VERSION_MAJOR &lt; 62)</summary>
@@ -5177,8 +5271,14 @@
         <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_PALETTE_HAS_CHANGED">
             <summary>FF_API_PALETTE_HAS_CHANGED = (LIBAVUTIL_VERSION_MAJOR &lt; 60)</summary>
         </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_QUALITY_FACTOR">
+            <summary>FF_API_QUALITY_FACTOR = (LIBAVCODEC_VERSION_MAJOR &lt; 62)</summary>
+        </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_R_FRAME_RATE">
             <summary>FF_API_R_FRAME_RATE = 1</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_RISCV_FD_ZBA">
+            <summary>FF_API_RISCV_FD_ZBA = (LIBAVUTIL_VERSION_MAJOR &lt; 60)</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_SDL2_DEVICE">
             <summary>FF_API_SDL2_DEVICE = (LIBAVDEVICE_VERSION_MAJOR &lt; 62)</summary>
@@ -5194,6 +5294,9 @@
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_VULKAN_CONTIGUOUS_MEMORY">
             <summary>FF_API_VULKAN_CONTIGUOUS_MEMORY = (LIBAVUTIL_VERSION_MAJOR &lt; 60)</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.FF_API_VULKAN_FIXED_QUEUES">
+            <summary>FF_API_VULKAN_FIXED_QUEUES = (LIBAVUTIL_VERSION_MAJOR &lt; 60)</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.FF_BUG_AMV">
             <summary>FF_BUG_AMV = 0x20</summary>
@@ -5335,6 +5438,9 @@
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.FF_DCT_MMX">
             <summary>FF_DCT_MMX = 0x3</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.ffmpeg.FF_DCT_NEON">
+            <summary>FF_DCT_NEON = 0x7</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.FF_DEBUG_BITSTREAM">
             <summary>FF_DEBUG_BITSTREAM = 0x4</summary>
@@ -5853,10 +5959,10 @@
             <summary>LIBAVCODEC_VERSION_MAJOR = 61</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBAVCODEC_VERSION_MICRO">
-            <summary>LIBAVCODEC_VERSION_MICRO = 0x64</summary>
+            <summary>LIBAVCODEC_VERSION_MICRO = 0x65</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBAVCODEC_VERSION_MINOR">
-            <summary>LIBAVCODEC_VERSION_MINOR = 0x3</summary>
+            <summary>LIBAVCODEC_VERSION_MINOR = 0x13</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBAVDEVICE_BUILD">
             <summary>LIBAVDEVICE_BUILD = LIBAVDEVICE_VERSION_INT</summary>
@@ -5877,7 +5983,7 @@
             <summary>LIBAVDEVICE_VERSION_MICRO = 100</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBAVDEVICE_VERSION_MINOR">
-            <summary>LIBAVDEVICE_VERSION_MINOR = 1</summary>
+            <summary>LIBAVDEVICE_VERSION_MINOR = 3</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBAVFILTER_BUILD">
             <summary>LIBAVFILTER_BUILD = LIBAVFILTER_VERSION_INT</summary>
@@ -5898,7 +6004,7 @@
             <summary>LIBAVFILTER_VERSION_MICRO = 0x64</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBAVFILTER_VERSION_MINOR">
-            <summary>LIBAVFILTER_VERSION_MINOR = 0x1</summary>
+            <summary>LIBAVFILTER_VERSION_MINOR = 0x4</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBAVFORMAT_BUILD">
             <summary>LIBAVFORMAT_BUILD = LIBAVFORMAT_VERSION_INT</summary>
@@ -5919,7 +6025,7 @@
             <summary>LIBAVFORMAT_VERSION_MICRO = 100</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBAVFORMAT_VERSION_MINOR">
-            <summary>LIBAVFORMAT_VERSION_MINOR = 1</summary>
+            <summary>LIBAVFORMAT_VERSION_MINOR = 7</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBAVUTIL_BUILD">
             <summary>LIBAVUTIL_BUILD = LIBAVUTIL_VERSION_INT</summary>
@@ -5940,7 +6046,7 @@
             <summary>LIBAVUTIL_VERSION_MICRO = 100</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBAVUTIL_VERSION_MINOR">
-            <summary>LIBAVUTIL_VERSION_MINOR = 8</summary>
+            <summary>LIBAVUTIL_VERSION_MINOR = 39</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBPOSTPROC_BUILD">
             <summary>LIBPOSTPROC_BUILD = LIBPOSTPROC_VERSION_INT</summary>
@@ -5961,7 +6067,7 @@
             <summary>LIBPOSTPROC_VERSION_MICRO = 0x64</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBPOSTPROC_VERSION_MINOR">
-            <summary>LIBPOSTPROC_VERSION_MINOR = 0x1</summary>
+            <summary>LIBPOSTPROC_VERSION_MINOR = 0x3</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBSWRESAMPLE_BUILD">
             <summary>LIBSWRESAMPLE_BUILD = LIBSWRESAMPLE_VERSION_INT</summary>
@@ -5982,7 +6088,7 @@
             <summary>LIBSWRESAMPLE_VERSION_MICRO = 0x64</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBSWRESAMPLE_VERSION_MINOR">
-            <summary>LIBSWRESAMPLE_VERSION_MINOR = 0x1</summary>
+            <summary>LIBSWRESAMPLE_VERSION_MINOR = 0x3</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBSWSCALE_BUILD">
             <summary>LIBSWSCALE_BUILD = LIBSWSCALE_VERSION_INT</summary>
@@ -6003,7 +6109,7 @@
             <summary>LIBSWSCALE_VERSION_MICRO = 0x64</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.LIBSWSCALE_VERSION_MINOR">
-            <summary>LIBSWSCALE_VERSION_MINOR = 0x1</summary>
+            <summary>LIBSWSCALE_VERSION_MINOR = 0x3</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.ffmpeg.M_1_PI">
             <summary>M_1_PI = 0.31830988618379067154</summary>
@@ -6317,6 +6423,18 @@
         <member name="F:FFmpeg.AutoGen.AVChannel.AV_CHAN_BOTTOM_FRONT_RIGHT">
             <summary>See above.</summary>
         </member>
+        <member name="F:FFmpeg.AutoGen.AVChannel.AV_CHAN_SIDE_SURROUND_LEFT">
+            <summary>+90 degrees, Lss, SiL</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVChannel.AV_CHAN_SIDE_SURROUND_RIGHT">
+            <summary>-90 degrees, Rss, SiR</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVChannel.AV_CHAN_TOP_SURROUND_LEFT">
+            <summary>+110 degrees, Lvs, TpLS</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVChannel.AV_CHAN_TOP_SURROUND_RIGHT">
+            <summary>-110 degrees, Rvs, TpRS</summary>
+        </member>
         <member name="F:FFmpeg.AutoGen.AVChannel.AV_CHAN_UNUSED">
             <summary>Channel is empty can be safely skipped.</summary>
         </member>
@@ -6361,6 +6479,27 @@
         </member>
         <member name="F:FFmpeg.AutoGen.AVClassCategory.AV_CLASS_CATEGORY_NB">
             <summary>not part of ABI/API</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVCodecConfig.AV_CODEC_CONFIG_PIX_FORMAT">
+            <summary>AVPixelFormat, terminated by AV_PIX_FMT_NONE</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVCodecConfig.AV_CODEC_CONFIG_FRAME_RATE">
+            <summary>AVRational, terminated by {0, 0}</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVCodecConfig.AV_CODEC_CONFIG_SAMPLE_RATE">
+            <summary>int, terminated by 0</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVCodecConfig.AV_CODEC_CONFIG_SAMPLE_FORMAT">
+            <summary>AVSampleFormat, terminated by AV_SAMPLE_FMT_NONE</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVCodecConfig.AV_CODEC_CONFIG_CHANNEL_LAYOUT">
+            <summary>AVChannelLayout, terminated by {0}</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVCodecConfig.AV_CODEC_CONFIG_COLOR_RANGE">
+            <summary>AVColorRange, terminated by AVCOL_RANGE_UNSPECIFIED</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVCodecConfig.AV_CODEC_CONFIG_COLOR_SPACE">
+            <summary>AVColorSpace, terminated by AVCOL_SPC_UNSPECIFIED</summary>
         </member>
         <member name="T:FFmpeg.AutoGen.AVCodecID">
             <summary>Identify the syntax and semantics of the bitstream. The principle is roughly: Two decoders with the same ID can decode the same streams. Two encoders with the same ID can encode compatible streams. There may be slight deviations from the principle due to implementation details.</summary>
@@ -6505,6 +6644,15 @@
         </member>
         <member name="F:FFmpeg.AutoGen.AVColorSpace.AVCOL_SPC_ICTCP">
             <summary>ITU-R BT.2100-0, ICtCp</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVColorSpace.AVCOL_SPC_IPT_C2">
+            <summary>SMPTE ST 2128, IPT-C2</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVColorSpace.AVCOL_SPC_YCGCO_RE">
+            <summary>YCgCo-R, even addition of bits</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVColorSpace.AVCOL_SPC_YCGCO_RO">
+            <summary>YCgCo-R, odd addition of bits</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.AVColorSpace.AVCOL_SPC_NB">
             <summary>Not part of ABI</summary>
@@ -6728,6 +6876,12 @@
         <member name="F:FFmpeg.AutoGen.AVFrameSideDataType.AV_FRAME_DATA_VIDEO_HINT">
             <summary>Provide encoder-specific hinting information about changed/unchanged portions of a frame. It can be used to pass information about which macroblocks can be skipped because they didn&apos;t change from the corresponding ones in the previous frame. This could be useful for applications which know this information in advance to speed up encoding.</summary>
         </member>
+        <member name="F:FFmpeg.AutoGen.AVFrameSideDataType.AV_FRAME_DATA_LCEVC">
+            <summary>Raw LCEVC payload data, as a uint8_t array, with NAL emulation bytes intact.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVFrameSideDataType.AV_FRAME_DATA_VIEW_ID">
+            <summary>This side data must be associated with a video frame. The presence of this side data indicates that the video stream is composed of multiple views (e.g. stereoscopic 3D content, cf. H.264 Annex H or H.265 Annex G). The data is an int storing the view ID.</summary>
+        </member>
         <member name="T:FFmpeg.AutoGen.AVHDRPlusOverlapProcessOption">
             <summary>Option for overlapping elliptical pixel selectors in an image.</summary>
         </member>
@@ -6774,16 +6928,67 @@
             <summary>Opaque data information usually sparse</summary>
         </member>
         <member name="T:FFmpeg.AutoGen.AVOptionType">
-            <summary>@{ AVOptions provide a generic system to declare options on arbitrary structs (&quot;objects&quot;). An option can have a help text, a type and a range of possible values. Options may then be enumerated, read and written to.</summary>
+            <summary>An option type determines: - for native access, the underlying C type of the field that an AVOption refers to; - for foreign access, the semantics of accessing the option through this API, e.g. which av_opt_get_*() and av_opt_set_*() functions can be called, or what format will av_opt_get()/av_opt_set() expect/produce.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_FLAGS">
+            <summary>Underlying C type is unsigned int.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_INT">
+            <summary>Underlying C type is int.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_INT64">
+            <summary>Underlying C type is int64_t.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_DOUBLE">
+            <summary>Underlying C type is double.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_FLOAT">
+            <summary>Underlying C type is float.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_STRING">
+            <summary>Underlying C type is a uint8_t* that is either NULL or points to a C string allocated with the av_malloc() family of functions.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_RATIONAL">
+            <summary>Underlying C type is AVRational.</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_BINARY">
-            <summary>offset must point to a pointer immediately followed by an int for the length</summary>
+            <summary>Underlying C type is a uint8_t* that is either NULL or points to an array allocated with the av_malloc() family of functions. The pointer is immediately followed by an int containing the array length in bytes.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_DICT">
+            <summary>Underlying C type is AVDictionary*.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_UINT64">
+            <summary>Underlying C type is uint64_t.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_CONST">
+            <summary>Special option type for declaring named constants. Does not correspond to an actual field in the object, offset must be 0.</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_IMAGE_SIZE">
-            <summary>offset must point to two consecutive integers</summary>
+            <summary>Underlying C type is two consecutive integers.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_PIXEL_FMT">
+            <summary>Underlying C type is enum AVPixelFormat.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_SAMPLE_FMT">
+            <summary>Underlying C type is enum AVSampleFormat.</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_VIDEO_RATE">
-            <summary>offset must point to AVRational</summary>
+            <summary>Underlying C type is AVRational.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_DURATION">
+            <summary>Underlying C type is int64_t.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_COLOR">
+            <summary>Underlying C type is uint8_t[4].</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_BOOL">
+            <summary>Underlying C type is int.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_CHLAYOUT">
+            <summary>Underlying C type is AVChannelLayout.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_UINT">
+            <summary>Underlying C type is unsigned int.</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.AVOptionType.AV_OPT_TYPE_FLAG_ARRAY">
             <summary>May be combined with another regular option type to declare an array option.</summary>
@@ -6898,6 +7103,12 @@
         </member>
         <member name="F:FFmpeg.AutoGen.AVPacketSideDataType.AV_PKT_DATA_AMBIENT_VIEWING_ENVIRONMENT">
             <summary>Ambient viewing environment metadata, as defined by H.274. This metadata should be associated with a video stream and contains data in the form of the AVAmbientViewingEnvironment struct.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVPacketSideDataType.AV_PKT_DATA_FRAME_CROPPING">
+            <summary>The number of pixels to discard from the top/bottom/left/right border of the decoded frame to obtain the sub-rectangle intended for presentation.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVPacketSideDataType.AV_PKT_DATA_LCEVC">
+            <summary>Raw LCEVC payload data, as a uint8_t array, with NAL emulation bytes intact.</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.AVPacketSideDataType.AV_PKT_DATA_NB">
             <summary>The number of side data types. This is not part of the public API/ABI in the sense that it may change when new side data types are added. This must stay the last enum value. If its value becomes huge, some code using it needs to be updated as it assumes it to be smaller than other limits.</summary>
@@ -7703,6 +7914,12 @@
         <member name="F:FFmpeg.AutoGen.AVSampleFormat.AV_SAMPLE_FMT_NB">
             <summary>Number of sample formats. DO NOT USE if linking dynamically</summary>
         </member>
+        <member name="F:FFmpeg.AutoGen.AVSideDataProps.AV_SIDE_DATA_PROP_GLOBAL">
+            <summary>The side data type can be used in stream-global structures. Side data types without this property are only meaningful on per-frame basis.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVSideDataProps.AV_SIDE_DATA_PROP_MULTI">
+            <summary>Multiple instances of this side data type can be meaningfully present in a single side data array.</summary>
+        </member>
         <member name="T:FFmpeg.AutoGen.AVStreamParseType">
             <summary>@}</summary>
         </member>
@@ -7933,18 +8150,6 @@
         </member>
         <member name="F:FFmpeg.AutoGen.AVCodec.max_lowres">
             <summary>maximum value for lowres supported by the decoder</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVCodec.supported_framerates">
-            <summary>array of supported framerates, or NULL if any, array is terminated by {0,0}</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVCodec.pix_fmts">
-            <summary>array of supported pixel formats, or NULL if unknown, array is terminated by -1</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVCodec.supported_samplerates">
-            <summary>array of supported audio samplerates, or NULL if unknown, array is terminated by 0</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVCodec.sample_fmts">
-            <summary>array of supported sample formats, or NULL if unknown, array is terminated by -1</summary>
         </member>
         <member name="F:FFmpeg.AutoGen.AVCodec.priv_class">
             <summary>AVClass for the private context</summary>
@@ -8804,6 +9009,9 @@
         <member name="F:FFmpeg.AutoGen.AVFilter_formats.query_func">
             <summary>Query formats supported by the filter on its inputs and outputs.</summary>
         </member>
+        <member name="F:FFmpeg.AutoGen.AVFilter_formats.query_func2">
+            <summary>Same as query_func(), except this function writes the results into provided arrays.</summary>
+        </member>
         <member name="F:FFmpeg.AutoGen.AVFilter_formats.pixels_list">
             <summary>A pointer to an array of admissible pixel formats delimited by AV_PIX_FMT_NONE. The generic code will use this list to indicate that this filter supports each of these pixel formats, provided that all inputs and outputs use the same pixel format.</summary>
         </member>
@@ -8995,42 +9203,6 @@
         </member>
         <member name="F:FFmpeg.AutoGen.AVFilterLink.outcfg">
             <summary>Lists of supported formats / etc. supported by the output filter.</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVFilterLink.graph">
-            <summary>Graph the filter belongs to.</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVFilterLink.current_pts">
-            <summary>Current timestamp of the link, as defined by the most recent frame(s), in link time_base units.</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVFilterLink.current_pts_us">
-            <summary>Current timestamp of the link, as defined by the most recent frame(s), in AV_TIME_BASE units.</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVFilterLink.frame_rate">
-            <summary>Frame rate of the stream on the link, or 1/0 if unknown or variable; if left to 0/0, will be automatically copied from the first input of the source filter if it exists.</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVFilterLink.min_samples">
-            <summary>Minimum number of samples to filter at once. If filter_frame() is called with fewer samples, it will accumulate them in fifo. This field and the related ones must not be changed after filtering has started. If 0, all related fields are ignored.</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVFilterLink.max_samples">
-            <summary>Maximum number of samples to filter at once. If filter_frame() is called with more samples, it will split them.</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVFilterLink.frame_count_in">
-            <summary>Number of past frames sent through the link.</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVFilterLink.frame_count_out">
-            <summary>Number of past frames sent through the link.</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVFilterLink.sample_count_in">
-            <summary>Number of past samples sent through the link.</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVFilterLink.sample_count_out">
-            <summary>Number of past samples sent through the link.</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVFilterLink.frame_wanted_out">
-            <summary>True if a frame is currently wanted on the output of this filter. Set when ff_request_frame() is called by the output, cleared when a frame is filtered.</summary>
-        </member>
-        <member name="F:FFmpeg.AutoGen.AVFilterLink.hw_frames_ctx">
-            <summary>For hwaccel pixel formats, this should be a reference to the AVHWFramesContext describing the frames.</summary>
         </member>
         <member name="T:FFmpeg.AutoGen.AVFilterPadParams">
             <summary>Parameters of a filter&apos;s input or output pad.</summary>
@@ -9253,6 +9425,9 @@
         </member>
         <member name="F:FFmpeg.AutoGen.AVFormatContext.io_close2">
             <summary>A callback for closing the streams opened with AVFormatContext.io_open().</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVFormatContext.duration_probesize">
+            <summary>Maximum number of bytes read from input in order to determine stream durations when using estimate_timings_from_pts in avformat_find_stream_info(). Demuxing only, set by the caller before avformat_find_stream_info(). Can be set to 0 to let avformat choose using a heuristic.</summary>
         </member>
         <member name="T:FFmpeg.AutoGen.AVFrame">
             <summary>This structure describes decoded (raw) audio or video data.</summary>
@@ -9923,6 +10098,15 @@
         <member name="F:FFmpeg.AutoGen.AVRegionOfInterest.qoffset">
             <summary>Quantisation offset.</summary>
         </member>
+        <member name="T:FFmpeg.AutoGen.AVSideDataDescriptor">
+            <summary>This struct describes the properties of a side data type. Its instance corresponding to a given type can be obtained from av_frame_side_data_desc().</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVSideDataDescriptor.name">
+            <summary>Human-readable side data description.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVSideDataDescriptor.props">
+            <summary>Side data property flags, a combination of AVSideDataProps values.</summary>
+        </member>
         <member name="T:FFmpeg.AutoGen.AVStream">
             <summary>Stream structure. New fields can be added to the end with minor version bumps. Removal, reordering and changes to existing fields require a major version bump. sizeof(AVStream) must not be used outside libav*.</summary>
         </member>
@@ -10006,6 +10190,18 @@
         </member>
         <member name="T:FFmpeg.AutoGen.AVStreamGroup_params">
             <summary>Group type-specific parameters</summary>
+        </member>
+        <member name="T:FFmpeg.AutoGen.AVStreamGroupLCEVC">
+            <summary>AVStreamGroupLCEVC is meant to define the relation between video streams and a data stream containing LCEVC enhancement layer NALUs.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVStreamGroupLCEVC.lcevc_index">
+            <summary>Index of the LCEVC data stream in AVStreamGroup.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVStreamGroupLCEVC.width">
+            <summary>Width of the final stream for presentation.</summary>
+        </member>
+        <member name="F:FFmpeg.AutoGen.AVStreamGroupLCEVC.height">
+            <summary>Height of the final image for presentation.</summary>
         </member>
         <member name="T:FFmpeg.AutoGen.AVStreamGroupTileGrid">
             <summary>AVStreamGroupTileGrid holds information on how to combine several independent images on a single canvas for presentation.</summary>

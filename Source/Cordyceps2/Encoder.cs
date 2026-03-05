@@ -97,8 +97,8 @@ public unsafe class Encoder : IDisposable
     //  though; and they'd be small anyways
     public Encoder(VideoSettings conf)
     {
-        if (Environment.Is64BitProcess)
-            throw new EncoderException("Encoder currently only supports being run in a 32-bit process.");
+        if (!Environment.Is64BitProcess)
+            throw new EncoderException("Encoder currently only supports being run in a 64-bit process.");
         
         VideoConfig = conf;
 
@@ -154,6 +154,7 @@ public unsafe class Encoder : IDisposable
         _audioCodec = ffmpeg.avcodec_find_encoder(AudioCodec);
         if (_audioCodec == null) throw new EncoderException("Could not find audio codec with ID: " + AudioCodec);
 
+        // TODO: Fix this obsolted field
         var supportedSampleRate = _audioCodec->supported_samplerates;
         var foundSampleRate = false;
         while (*supportedSampleRate != 0)
@@ -299,20 +300,17 @@ public unsafe class Encoder : IDisposable
         // frame, and set constant fields (width, height, pixel format) once.
         var frame = ffmpeg.av_frame_alloc();
         if (frame == null) throw new EncoderException("Failed to allocate video codec AVFrame.");
-
-        // See definition of AVFrame32 for reasoning as to why this pointer cast is performed.
-        var frame32 = (AVFrame32*)frame;
         
-        frame32->width = VideoConfig.VideoOutputWidth;
-        frame32->height = VideoConfig.VideoOutputHeight;
-        frame32->format = (int)AVPixelFormat.AV_PIX_FMT_YUV420P;
+        frame->width = VideoConfig.VideoOutputWidth;
+        frame->height = VideoConfig.VideoOutputHeight;
+        frame->format = (int)AVPixelFormat.AV_PIX_FMT_YUV420P;
 
         if (VideoConfig.UseColorspaceInformation)
         {
-            frame32->color_range = VideoConfig.ColorRange;
-            frame32->color_primaries = VideoConfig.ColorPrimaries;
-            frame32->color_trc = VideoConfig.ColorTrc;
-            frame32->colorspace = VideoConfig.Colorspace;
+            frame->color_range = VideoConfig.ColorRange;
+            frame->color_primaries = VideoConfig.ColorPrimaries;
+            frame->color_trc = VideoConfig.ColorTrc;
+            frame->colorspace = VideoConfig.Colorspace;
         }
         
         try
@@ -479,12 +477,9 @@ public unsafe class Encoder : IDisposable
         var frame = ffmpeg.av_frame_alloc();
         if (frame == null) throw new EncoderException("Failed to allocate audio codec AVFrame.");
         
-        // See definition of AVFrame32 for reasoning as to why this pointer cast is performed.
-        var frame32 = (AVFrame32*)frame;
-        
-        frame32->nb_samples = SamplesPerFrame;
-        frame32->format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLTP;
-        frame32->ch_layout = _audioCodecContext->ch_layout;
+        frame->nb_samples = SamplesPerFrame;
+        frame->format = (int)AVSampleFormat.AV_SAMPLE_FMT_FLTP;
+        frame->ch_layout = _audioCodecContext->ch_layout;
         
         try
         {
@@ -1061,7 +1056,7 @@ public unsafe class Encoder : IDisposable
     }
     
     // Have to use this wrapper because you can't have pointers as generic type arguments.
-    private class Pointer<T>(T* ptr) where T : unmanaged
+    private struct Pointer<T>(T* ptr) where T : unmanaged
     {
         public T* Value = ptr;
 
@@ -1069,64 +1064,5 @@ public unsafe class Encoder : IDisposable
         public static implicit operator Pointer<T>(T* ptr) => new(ptr);
     }
     
-    // Alternate version of the AVFrame struct from FFmpeg.AutoGen which has the type of the 'crop_*' fields changed
-    // from ulong to uint. This is necessary when using 32-bit/x86 FFmpeg bindings, as these fields are natively typed
-    // as 'size_t', which is 4 bytes for 32-bit, and 8 bytes for 64-bit.
-    // It took me far, far too long to figure this out.
-    // ReSharper disable InconsistentNaming
-    // ReSharper disable NotAccessedField.Local
-#pragma warning disable CS0649 // Field is never assigned to, and will always have its default value
-    private struct AVFrame32
-    {
-        public byte_ptrArray8 data;
-        public int_array8 linesize;
-        public byte** extended_data;
-        public int width;
-        public int height;
-        public int nb_samples;
-        public int format;
-        public int key_frame;
-        public AVPictureType pict_type;
-        public AVRational sample_aspect_ratio;
-        public long pts;
-        public long pkt_dts;
-        public AVRational time_base;
-        public int quality;
-        public void* opaque;
-        public int repeat_pict;
-        public int interlaced_frame;
-        public int top_field_first;
-        public int palette_has_changed;
-        public int sample_rate;
-        public AVBufferRef_ptrArray8 buf;
-        public AVBufferRef** extended_buf;
-        public int nb_extended_buf;
-        public AVFrameSideData** side_data;
-        public int nb_side_data;
-        public int flags;
-        public AVColorRange color_range;
-        public AVColorPrimaries color_primaries;
-        public AVColorTransferCharacteristic color_trc;
-        public AVColorSpace colorspace;
-        public AVChromaLocation chroma_location;
-        public long best_effort_timestamp;
-        public long pkt_pos;
-        public AVDictionary* metadata;
-        public int decode_error_flags;
-        public int pkt_size;
-        public AVBufferRef* hw_frames_ctx; 
-        public AVBufferRef* opaque_ref;
-        public uint crop_top;
-        public uint crop_bottom;
-        public uint crop_left;
-        public uint crop_right;
-        public AVBufferRef* private_ref;
-        public AVChannelLayout ch_layout;
-        public long duration;
-    }
-#pragma warning restore CS0649 // Field is never assigned to, and will always have its default value
-    // ReSharper restore NotAccessedField.Local
-    // ReSharper restore InconsistentNaming
-
     public class EncoderException(string message) : Exception(message);
 }

@@ -225,12 +225,12 @@ public static class Recording
         
         try
         {
+            if (self.manager.currentMainLoop != self) return;
+            
             CheckInputsRecording();
             
             if (Status != RecordStatus.Recording) return;
-            
-            if (self.manager.currentMainLoop != self) return;
-            
+
             var tickrate = self is RainWorldGame 
                 ? TimeControl.UnmodifiedTickrate 
                 : self.framesPerSecond;

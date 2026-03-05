@@ -47,8 +47,8 @@
           <HintPath>..\..\..\..\..\..\BepInEx\core\BepInEx.dll</HintPath>
           <Private>False</Private>
         </Reference>
-        <Reference Include="FFmpeg.AutoGen, Version=7.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-          <HintPath>packages\FFmpeg.AutoGen.7.0.0\lib\netstandard2.0\FFmpeg.AutoGen.dll</HintPath>
+        <Reference Include="FFmpeg.AutoGen, Version=7.1.1.0, Culture=neutral, processorArchitecture=MSIL">
+          <HintPath>packages\FFmpeg.AutoGen.7.1.1\lib\netstandard2.0\FFmpeg.AutoGen.dll</HintPath>
         </Reference>
         <Reference Include="HOOKS-Assembly-CSharp">
           <HintPath>..\..\..\..\..\..\BepInEx\plugins\HOOKS-Assembly-CSharp.dll</HintPath>
