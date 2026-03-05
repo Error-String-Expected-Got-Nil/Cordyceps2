@@ -106,6 +106,7 @@ public class AudioCapture : MonoBehaviour
                 _intermediateSampleCounter--;
                 _intermediateSampleBuffer[_intermediateSampleCount] = data[i];
                 _intermediateSampleBuffer[_intermediateSampleCount + 1] = data[i + 1];
+                
                 _intermediateSampleCount += 2;
             }
         }
@@ -173,6 +174,7 @@ public class AudioCapture : MonoBehaviour
             if (_filledBytes != _submitBuffer.Length) continue;
             
             Recording.Encoder.SubmitAudioData(_submitBuffer);
+            
             _submitBuffer = null;
             _filledBytes = 0;
         }
@@ -243,13 +245,13 @@ public class AudioCapture : MonoBehaviour
         public void PopBytes(byte[] dest, int start, int count)
         {
             if (count < _top)
-                Buffer.BlockCopy(_buffer, _top - count, dest, start, 
+                Buffer.BlockCopy(_buffer, _top - count * 4, dest, start, 
                     count * 4);
             else
             {
-                Buffer.BlockCopy(_buffer, size - count + _top, dest, start,
+                Buffer.BlockCopy(_buffer, size - count * 4 + _top, dest, start,
                     (count - _top) * 4);
-                Buffer.BlockCopy(_buffer, 0, dest, start + count - _top, 
+                Buffer.BlockCopy(_buffer, 0, dest, start + count * 4 - _top, 
                     _top * 4); // Length 0 copy is valid so this works if Top is 0
             }
 
