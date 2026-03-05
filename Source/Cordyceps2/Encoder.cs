@@ -1027,31 +1027,36 @@ public unsafe class Encoder : IDisposable
     private class DataBufferPool(int bufferSize, int depth)
     {
         private readonly ConcurrentBag<byte[]> _pool = [];
+        private readonly object _padlock = new();
         
         private int _extantCount;
 
         public int BufferSize { get; private set; } = bufferSize;
         public int Depth { get; private set; } = depth;
-        public int ExtantCount => _extantCount;
-        public int TotalCount => _extantCount + _pool.Count;
         
         public byte[] Pop()
         {
-            if (Depth != 0 && _extantCount >= Depth) return null;
-            Interlocked.Increment(ref _extantCount);
-            return _pool.TryTake(out var item) ? item : new byte[BufferSize];
+            lock (_padlock)
+            {
+                if (Depth != 0 && _extantCount >= Depth) return null;
+                _extantCount++;
+                return _pool.TryTake(out var item) ? item : new byte[BufferSize];
+            }
         }
 
         public void Push(byte[] item)
         {
-            if (_extantCount == 0)
-                throw new ArgumentException("Attempt to push buffer to DataBufferPool with no extant items.");
-            if (item.Length != BufferSize)
-                throw new ArgumentException("Attempt to push buffer to DataBufferPool of different size than the " +
-                                            "buffers provided by the pool.");
-            
-            Interlocked.Decrement(ref _extantCount);
-            _pool.Add(item);
+            lock (_padlock)
+            {
+                if (_extantCount == 0)
+                    throw new ArgumentException("Attempt to push buffer to DataBufferPool with no extant items.");
+                if (item.Length != BufferSize)
+                    throw new ArgumentException("Attempt to push buffer to DataBufferPool of different size than the " +
+                                                "buffers provided by the pool.");
+
+                _extantCount--;
+                _pool.Add(item);
+            }
         }
     }
     
