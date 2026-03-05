@@ -55,6 +55,8 @@ public class AudioCapture : MonoBehaviour
         SampleRate = config.sampleRate;
     }
 
+    // TODO: Loading screens seem to result in some kind of desync that corrupts the audio recording, need to
+    //  investigate further
     private void OnAudioFilterRead(float[] data, int channels)
     {
         // Consider the following:
