@@ -176,7 +176,6 @@ public class AudioCapture : MonoBehaviour
             if (_filledBytes != _submitBuffer.Length) continue;
             
             Recording.Encoder.SubmitAudioData(_submitBuffer);
-            
             _submitBuffer = null;
             _filledBytes = 0;
         }
@@ -185,6 +184,9 @@ public class AudioCapture : MonoBehaviour
     // Pops directly from the circular idle excess buffer to the submit buffer without needing a temporary array.
     private void PopIdleExcessBufferToSubmitBuffer(int count)
     {
+        // TODO: DEBUG
+        Log($"Idle excess buffer popped at {InfoPanel.FormatTime(Recording.RecordTime)}");
+        
         while (count > 0)
         {
             // Assumes there will always be an audio data buffer returned, which there should be, as I'm not going to
@@ -195,7 +197,7 @@ public class AudioCapture : MonoBehaviour
             var fillAmount = Math.Min(count, (_submitBuffer.Length - _filledBytes) / 4);
             count -= fillAmount;
 
-            _idleExcessBuffer.PopBytes(_submitBuffer, _filledBytes, fillAmount);
+            _idleExcessBuffer.ReadFloats(_submitBuffer, _filledBytes, fillAmount);
             _filledBytes += fillAmount * 4;
 
             if (_filledBytes != _submitBuffer.Length) continue;
@@ -244,20 +246,18 @@ public class AudioCapture : MonoBehaviour
         // Elements are copied to dest such that the first copied element is the oldest element popped.
         // count is a number of samples/floats, *not* a number of bytes; it is multiplied by 4 when input as the length
         // argument for the copy operations.
-        public void PopBytes(byte[] dest, int start, int count)
+        public void ReadFloats(byte[] dest, int start, int count)
         {
             if (count < _top)
-                Buffer.BlockCopy(_buffer, _top - count * 4, dest, start, 
+                Buffer.BlockCopy(_buffer, (_top - count) * 4, dest, start, 
                     count * 4);
             else
             {
-                Buffer.BlockCopy(_buffer, size - count * 4 + _top, dest, start,
+                Buffer.BlockCopy(_buffer, (size - count + _top) * 4, dest, start,
                     (count - _top) * 4);
-                Buffer.BlockCopy(_buffer, 0, dest, start + count * 4 - _top, 
+                Buffer.BlockCopy(_buffer, 0, dest, start + (count - _top) * 4, 
                     _top * 4); // Length 0 copy is valid so this works if Top is 0
             }
-
-            _top = (_top + size - count) % count;
         }
     }
     

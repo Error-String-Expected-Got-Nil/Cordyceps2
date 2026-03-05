@@ -1049,6 +1049,7 @@ public unsafe class Encoder : IDisposable
             lock (_padlock)
             {
                 if (_extantCount == 0)
+                    // TODO: Audio recording can trigger this exception somehow, I have no earthly idea why
                     throw new ArgumentException("Attempt to push buffer to DataBufferPool with no extant items.");
                 if (item.Length != BufferSize)
                     throw new ArgumentException("Attempt to push buffer to DataBufferPool of different size than the " +
