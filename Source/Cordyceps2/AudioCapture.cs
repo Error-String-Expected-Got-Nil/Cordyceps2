@@ -23,11 +23,13 @@ public class AudioCapture : MonoBehaviour
     // Portion of samples read each frame that are considered "new", this is not necessarily *every* sample read that
     // frame, as playing in slow motion will extend the length of every playing audio source. For example, playing the
     // game at half speed doubles the true, real-time length of every sound, meaning we only take half of read samples.
+    // TODO: Should extend every audio source, but by default music is exempt. Need to patch that to slow down music
+    //  by the same amount TimeControl is slowing the game compared to the current default. 
     private float[] _intermediateSampleBuffer;
     private int _intermediateSampleCount; // Double samples
     private float _intermediateSampleCounter;
 
-    private int _sampleRate;
+    public int SampleRate { get; private set; }
     
     public void RequestSamples(int count)
     {
@@ -50,7 +52,7 @@ public class AudioCapture : MonoBehaviour
         _continuousExcessBuffer = new float[samplesPerFrame];
         _intermediateSampleBuffer = new float[samplesPerFrame];
         
-        _sampleRate = config.sampleRate;
+        SampleRate = config.sampleRate;
     }
 
     private void OnAudioFilterRead(float[] data, int channels)
@@ -119,7 +121,7 @@ public class AudioCapture : MonoBehaviour
         {
             _idle = false;
             var deltaTime = (float)(timestamp - _lastRequestTimestamp) / Stopwatch.Frequency;
-            var extraSamples = (int)(deltaTime * _sampleRate);
+            var extraSamples = (int)(deltaTime * SampleRate);
             // A game tick is always longer than an audio frame so we can safely pop the maximum number of extra
             // samples every time, since a request from idle will always be >= the size of the idle excess buffer.
             PopIdleExcessBufferToSubmitBuffer(extraSamples * 2); // Double because there are 2 channels

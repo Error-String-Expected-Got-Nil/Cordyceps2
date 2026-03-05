@@ -49,6 +49,10 @@ lag, you should be completely fine to use them.
 The following are some more detailed notes and technical explanations for the various settings available when configuring
 the video encoder. Not necessary to just use Cordyceps2, but may be of interest.
 
+- **Record Audio:** Whether or not Cordyceps2 should also record game audio when making recordings. Note that certain sounds
+(in particular, music) will be slowed down with the game's tickrate while this is enabled, in order to properly sync them in 
+the recording. This is turned off by default.
+
 - **Output Resolution:** Resolution to scale the output video to. "Native" means the resolution the game is actually 
 running at. The only other option is "1920x1080", mostly to make uploading to YouTube at decent quality easier. The 
 encoder cannot create quality from nothing; native resolution is the best the video can *actually* be, setting this to 

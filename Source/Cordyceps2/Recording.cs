@@ -13,7 +13,9 @@ namespace Cordyceps2;
 public static class Recording
 {
     private static double _frameRequestCounter;
+    private static double _sampleRequestCounter;
     private static VideoCapture _videoCapture;
+    private static AudioCapture _audioCapture;
     private static bool _startRecordingHeld;
     private static bool _stopRecordingHeld;
     
@@ -62,8 +64,9 @@ public static class Recording
         
         // Need to attach the video capture script to *something,* and whatever object holds the mod's plugin is
         // probably fine. I don't think it should matter where it is, it just needs to exist somewhere.
-        // TODO: Also add audio capture when that's implemented
         _videoCapture = Cordyceps2Main.Instance.gameObject.AddComponent<VideoCapture>();
+        // Audio capture, on the other hand, must be attached to the game's AudioListener, but that's easy to find.
+        _audioCapture = Object.FindAnyObjectByType<AudioListener>().gameObject.AddComponent<AudioCapture>();
     }
 
     public static void StartRecording()
@@ -99,12 +102,14 @@ public static class Recording
             Log("Exception: " + e);
             return;
         }
-
         
-        // TODO: For audio, make alternate form to create with audio settings if audio recording is enabled
         try
         {
-            Encoder = new Encoder(GetVideoSettings(), Cordyceps2Settings.DoProfiling.Value);
+            if (Cordyceps2Settings.RecordAudio.Value)
+                Encoder = new Encoder(GetVideoSettings(), GetAudioSettings(), 
+                    Cordyceps2Settings.DoProfiling.Value);
+            else
+                Encoder = new Encoder(GetVideoSettings(), Cordyceps2Settings.DoProfiling.Value);
         }
         catch (Encoder.EncoderException e)
         {
@@ -155,10 +160,23 @@ public static class Recording
         );
     }
 
+    private static Encoder.AudioSettings GetAudioSettings()
+    {
+        return new Encoder.AudioSettings(
+            _audioCapture.SampleRate,
+            2,
+            AVSampleFormat.AV_SAMPLE_FMT_FLT
+        );
+    }
+
     public static void StopRecording()
     {
         Status = RecordStatus.Stopping;
         Log("Stopping recording.");
+        _frameRequestCounter = 0;
+        _sampleRequestCounter = 0;
+        // TODO: Verify this isn't a race condition
+        _audioCapture.FlushSubmitBuffer();
         Encoder.Stop().ContinueWith(RecordStopCallback);
 
         return;
@@ -184,6 +202,22 @@ public static class Recording
                 Log("Maximum video frames queued at once: " + Encoder.MaxVideoFramesQueued);
             
                 // TODO: Print audio profiling data if present
+                if (Encoder.HasAudio)
+                {
+                    Log("Total audio frames encoded: " + Encoder.AudioFrames);
+                    Log("Total audio encode time: " + InfoPanel.FormatTime(Encoder.AudioEncodeTime));
+                    Log("Average audio encode time per frame: " + 
+                        (Encoder.AudioFrames == 0 
+                            ? "0.00" 
+                            : (Encoder.AudioEncodeTime / Encoder.AudioFrames * 1000).ToString("0.00")) 
+                        + "ms");
+                    Log("Relative audio encode rate: " + 
+                        (Encoder.VideoEncodeTime == 0 
+                            ? "0.00" 
+                            : (RecordTime / Encoder.AudioEncodeTime).ToString("0.00")) 
+                        + "x");
+                    Log("Maximum audio frames queued at once: " + Encoder.MaxAudioFramesQueued);
+                }
             }
         
             Encoder.Dispose();
@@ -215,7 +249,7 @@ public static class Recording
         }
     }
 
-    // Hook responsible for making frame the requests that eventually result in data being submitted to the encoder.
+    // Hook responsible for making the frame requests that eventually result in data being submitted to the encoder.
     // Being a hook on MainLoopProcess.Update, it is inherently synced with the time control already.
     // Only runs if currently recording and the current true main loop is this process, to make sure this only runs
     // once per update.
@@ -243,6 +277,14 @@ public static class Recording
             _videoCapture.RequestFrames(requestCount);
             RecordTime += (decimal)requestCount / Cordyceps2Settings.RecordingFps.Value;
             _frameRequestCounter -= requestCount;
+
+            if (!Encoder.HasAudio) return;
+            
+            _sampleRequestCounter += (double)requestCount / Cordyceps2Settings.RecordingFps.Value 
+                                     * _audioCapture.SampleRate;
+            var sampleRequestCount = (int)Math.Floor(_sampleRequestCounter);
+            _audioCapture.RequestSamples(sampleRequestCount);
+            _sampleRequestCounter -= sampleRequestCount;
         }
         catch (Exception e)
         {

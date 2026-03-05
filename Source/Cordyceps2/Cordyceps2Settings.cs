@@ -87,6 +87,11 @@ public class Cordyceps2Settings : OptionInterface
             "Resolution to output recorded video at. \"Native\" means the actual resolution the game is " +
             "running at. Changing this off of Native will significantly increase encode time.", 
             new ConfigAcceptableList<string>(OutputResolutions)));
+
+    public static Configurable<bool> RecordAudio =
+        Instance.config.Bind(nameof(RecordAudio), false, new ConfigurableInfo(
+            "Whether or not, when recording, audio should be recorded. Has some effects on in-game audio " +
+            "audio during play to allow it to be recorded correctly."));
     
     // Second column
     public static Configurable<bool> EnableRecording =
@@ -232,6 +237,13 @@ public class Cordyceps2Settings : OptionInterface
             new OpComboBox(OutputResolution, new Vector2(150f, 500f), 120, OutputResolutions)
                 {description = OutputResolution.info.description},
             
+            new OpLabel(10f, 470f, "Record Audio") 
+                {description = RecordAudio.info.description},
+            new OpCheckBox(RecordAudio, new Vector2(150f, 465f))
+                {description = RecordAudio.info.description},
+            
+            // TODO: Audio bitrate option?
+            
             // Second column
             new OpLabel(300f, 575f, "Enable Recording")
                 {description = EnableRecording.info.description},
@@ -249,11 +261,11 @@ public class Cordyceps2Settings : OptionInterface
                 {description = FragmentVideo.info.description},
             
             // Middle row
-            new OpLabel(10f, 435f, "Output Directory")
+            new OpLabel(10f, 400f, "Output Directory")
                 {description = RecordingOutputDirectory.info.description},
-            new OpTextBox(RecordingOutputDirectory, new Vector2(10f, 400f), 570f)
+            new OpTextBox(RecordingOutputDirectory, new Vector2(10f, 365f), 570f)
                 {description = RecordingOutputDirectory.info.description},
-            new OpLabelLong(new Vector2(10f, 365f), new Vector2(570f, 0f), 
+            new OpLabelLong(new Vector2(10f, 330f), new Vector2(570f, 0f), 
                 "Given path must be a directory, or a valid path for a directory. If the directory does not " +
                 "exist when recording starts, it will be created. If the given path is not valid or the directory " +
                 "could not be created, recording will fail to start, and it will be noted as the reason in the log."),
