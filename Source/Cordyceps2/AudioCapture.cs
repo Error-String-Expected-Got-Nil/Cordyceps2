@@ -41,6 +41,9 @@ public class AudioCapture : MonoBehaviour
         SampleRate = config.sampleRate;
     }
     
+    // TODO: Mostly works! But tick advance and very very low tickrates seem to result in staticky popping, not sure
+    //  exactly why, but probably indicative of sample sequences that are supposed to be contiguous getting clipped.
+    //  Possibly need to synchronize ArtificialTimeFactor more carefully?
     private void OnAudioFilterRead(float[] data, int channels)
     {
         // Values that are taken/modified by other threads and therefore may change during execution, so we save them
@@ -49,7 +52,7 @@ public class AudioCapture : MonoBehaviour
         var timeFactor = TimeControl.ArtificialTimeFactor;
 
         // Do nothing if time is stopped, since we won't be reading any samples anyway.
-        if (timeFactor == 0.0) return;
+        if (timeFactor == 0.0f) return;
 
         // Also do nothing if there's no request. Attempt at simplification compared to previous version: Don't bother
         // saving any samples if there's no request, it may not actually be necessary.
@@ -71,6 +74,7 @@ public class AudioCapture : MonoBehaviour
         // Another simplification: If there is a request, we submit all recorded samples and decrement the request
         // amount by that much, even into the negatives. Theory being that it doesn't really matter if we give too much
         // data since it's likely that the next frame is going to be asking for it anyway.
+        // TODO: Reevaluate that assumption, it's possible that may not hold when considering tick advance
         FillSubmitBuffer(_sampleBuffer, floatCount);
         Interlocked.Add(ref _requestedSamples, -(floatCount / 2));
     }

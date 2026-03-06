@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using FFmpeg.AutoGen;
 using MonoMod.Cil;
+using Music;
 using UnityEngine;
 using Object = UnityEngine.Object;
 using OpCodes = Mono.Cecil.Cil.OpCodes;
@@ -328,6 +329,24 @@ public static class Recording
             StopRecording();
         }
         else _stopRecordingHeld = false;
+    }
+
+    // In Unity, "pitch" for AudioSources is actually just the playback speed. Music tracks always use default pitch, so
+    // if we modify it, we can artifically stretch out a song proportional to the current time factor in order to sync
+    // the audio with the video when recording.
+    public static void MusicPiece_SubTrack_Update_Hook(On.Music.MusicPiece.SubTrack.orig_Update orig, 
+        MusicPiece.SubTrack self)
+    {
+        orig(self);
+
+        try
+        {
+            self.source.pitch = Cordyceps2Settings.RecordAudio.Value ? TimeControl.ArtificialTimeFactor : 1.0f;
+        }
+        catch (Exception e)
+        {
+            Log($"ERROR - Exception in MusicPiece_SubTrack_Update_Hook: {e}");
+        }
     }
     
     public static void SetFFmpegLogLevel()
