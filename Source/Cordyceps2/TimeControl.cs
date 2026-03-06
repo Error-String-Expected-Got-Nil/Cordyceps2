@@ -11,6 +11,11 @@ public static class TimeControl
 {
     public static int UnmodifiedTickrate = 40;
     public static int DesiredTickrate = 40;
+    // The factor TimeControl is slowing the game down by relative to what it would be normally. Ex.: if the current
+    // default tickrate is 30 due to being in the depths, and TimeControl is slowing the tickrate down to 20, then this
+    // will be 20 / 30.
+    public static double ArtificialTimeFactor = 1.0;
+    
     public static bool TickrateCapOn;
     public static bool TickPauseOn;
     public static bool WaitingForTick;
@@ -53,8 +58,11 @@ public static class TimeControl
 
                 CheckInputs(dt);
 
-                if (CanAffectTickrate()) 
-                    game.framesPerSecond = TickPauseOn ? 0 : Math.Min(DesiredTickrate, game.framesPerSecond);
+                if (!CanAffectTickrate()) return;
+                
+                var targetTickrate = TickPauseOn ? 0 : Math.Min(DesiredTickrate, game.framesPerSecond);
+                ArtificialTimeFactor = UnmodifiedTickrate == 0 ? 0.0 : targetTickrate / (double)UnmodifiedTickrate;
+                game.framesPerSecond = targetTickrate;
             }
             catch (Exception e)
             {
@@ -73,9 +81,7 @@ public static class TimeControl
         {
             if (!CanAffectTickrate()) return originalReturn;
             
-            // TODO: Promote this to a static field, decouple TimeSpeedFac from modified tickrate
-            var timeDialationFactor = game.framesPerSecond / (double) UnmodifiedTickrate;
-            return originalReturn * timeDialationFactor;
+            return originalReturn * ArtificialTimeFactor;
         }
         catch (Exception e)
         {

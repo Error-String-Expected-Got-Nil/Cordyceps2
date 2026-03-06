@@ -1,11 +1,8 @@
 ﻿using System;
 using System.IO;
-using System.Reflection;
-using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using FFmpeg.AutoGen;
-using HarmonyLib;
 using MonoMod.Cil;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -27,8 +24,7 @@ public static class Recording
     public static RecordStatus Status { get; private set; } = RecordStatus.Stopped;
     public static decimal RecordTime { get; private set; }
     public static Encoder Encoder { get; private set; }
-    
-    public static bool BinariesLoaded;
+    public static bool BinariesLoaded { get; private set; }
     
     public static unsafe void Initialize()
     {
@@ -204,10 +200,12 @@ public static class Recording
                         ? "0.00" 
                         : (RecordTime / Encoder.VideoEncodeTime).ToString("0.00")) 
                     + "x");
-                Log("Maximum video frames queued at once: " + Encoder.MaxVideoFramesQueued);
+                Log("Maximum video frames queued at once: " + Encoder.MaxVideoFramesQueued + "\n");
                 
                 if (Encoder.HasAudio)
                 {
+                    Log("Audio frame length: " + ((double)Encoder.SamplesPerFrame / _audioCapture.SampleRate * 1000.0)
+                                               .ToString("0.00") + "ms");
                     Log("Total audio frames encoded: " + Encoder.AudioFrames);
                     Log("Total audio encode time: " + InfoPanel.FormatTime(Encoder.AudioEncodeTime));
                     Log("Average audio encode time per frame: " + 
@@ -220,7 +218,7 @@ public static class Recording
                             ? "0.00" 
                             : (RecordTime / Encoder.AudioEncodeTime).ToString("0.00")) 
                         + "x");
-                    Log("Maximum audio frames queued at once: " + Encoder.MaxAudioFramesQueued);
+                    Log("Maximum audio frames queued at once: " + Encoder.MaxAudioFramesQueued + "\n");
                 }
             }
         
@@ -275,7 +273,7 @@ public static class Recording
             try
             {
                 if (self.manager.currentMainLoop != self) return;
-            
+                
                 CheckInputsRecording();
             
                 if (Status != RecordStatus.Recording) return;
