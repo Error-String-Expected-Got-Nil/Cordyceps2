@@ -40,11 +40,7 @@ public class AudioCapture : MonoBehaviour
         
         SampleRate = config.sampleRate;
     }
-
-    // TODO: While this does current work mostly right for real-time recording, there are still issues. There is a
-    //  variable but noticeable audio desync on starting recording (somewhat expected problem, it's what the original
-    //  version of this code was putting so much effort into fixing), and the audio seems to cut out completely and 
-    //  stop recording whenever time control is actually used, which is unexepcted. Need to investigate.
+    
     private void OnAudioFilterRead(float[] data, int channels)
     {
         // Values that are taken/modified by other threads and therefore may change during execution, so we save them
