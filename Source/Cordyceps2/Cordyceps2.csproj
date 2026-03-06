@@ -87,6 +87,7 @@
     </ItemGroup>
     <ItemGroup>
         <Compile Include="AudioCapture.cs" />
+        <Compile Include="AudioCapture_old.cs" />
         <Compile Include="Cordyceps2Main.cs" />
         <Compile Include="Cordyceps2Settings.cs" />
         <Compile Include="Encoder.cs" />
