@@ -6,6 +6,10 @@ using Debug = UnityEngine.Debug;
 
 namespace Cordyceps2;
 
+// TODO: Okay, that's it. I think I just have to re-write this whole thing. Maybe think it through some mroe too. I
+//  made this way too long ago and never tested it properly: *Something* is up here, and it just isn't working
+//  quite as it should.
+
 // Must be attached to the game's AudioListener
 public class AudioCapture : MonoBehaviour
 {
@@ -30,6 +34,8 @@ public class AudioCapture : MonoBehaviour
     private float _intermediateSampleCounter;
 
     public int SampleRate { get; private set; }
+
+    private int _debugCounter;
     
     public void RequestSamples(int count)
     {
@@ -146,6 +152,18 @@ public class AudioCapture : MonoBehaviour
                     "should only result in a minor audio desync, assuming nothing worse is occurring.");
             currentRequest -= excessFillAmount;
             Interlocked.Add(ref _requestedSamples, -excessFillAmount);
+
+            if (_debugCounter == 20)
+            {
+                _debugCounter = 0;
+                var dt = (double)(timestamp - _lastRequestTimestamp) / Stopwatch.Frequency;
+                var predicted = (int)(dt * SampleRate);
+                Log($"excessFillAmount = {excessFillAmount}, predicted = {predicted}");
+            }
+            else
+            {
+                _debugCounter++;
+            }
         }
 
         var intermediateFillAmount = Math.Min(_intermediateSampleCount, currentRequest * 2);
