@@ -258,6 +258,11 @@ public static class Recording
         
         try
         {
+            // TODO: There's something fucky going with this. When Rain World is launched with debug/development
+            //  binaries, this logic works fine, frame requests are made, recordings work. However, when launched with
+            //  release binaries, it stops working. Whyyyy? Why is that? Am I being punished? Did I do something wrong?
+            //  Ethically or morally, I mean. Clearly I did something *logically* wrong, since it ISN'T WORKING
+            
             if (self.manager.currentMainLoop != self) return;
             
             CheckInputsRecording();
