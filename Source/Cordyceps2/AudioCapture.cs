@@ -10,7 +10,7 @@ namespace Cordyceps2;
 public class AudioCapture : MonoBehaviour
 {
     private int _requestedSamples;
-    private long _lastRequestTimestamp;
+    private double _lastRequestTimestamp;
 
     private byte[] _submitBuffer;
     private int _filledBytes;
@@ -33,7 +33,7 @@ public class AudioCapture : MonoBehaviour
     
     public void RequestSamples(int count)
     {
-        _lastRequestTimestamp = Stopwatch.GetTimestamp();
+        _lastRequestTimestamp = AudioSettings.dspTime;
         Interlocked.Add(ref _requestedSamples, count);
     }
 
@@ -93,7 +93,7 @@ public class AudioCapture : MonoBehaviour
         
         // All the following need to be saved at the start of the read, in the event they change mid-function. This is
         // guaranteed for the timestamp, and unlikely but possible for timeFactor and currentRequest.
-        var timestamp = Stopwatch.GetTimestamp();
+        var timestamp = AudioSettings.dspTime;
         var timeFactor = 1.0f; // TODO: Set to the time dialation factor from TimeControl when that's added
         // TODO: Time dialation factor should be set at the START OF EACH UPDATE ONLY, not on raw updates, and this is
         //  what AudioCapture should check! Furthermore, this should be the case for all audio syncing operations
@@ -127,7 +127,7 @@ public class AudioCapture : MonoBehaviour
         if (_idle)
         {
             _idle = false;
-            var deltaTime = (float)(timestamp - _lastRequestTimestamp) / Stopwatch.Frequency;
+            var deltaTime = timestamp - _lastRequestTimestamp;
             var extraSamples = (int)(deltaTime * SampleRate);
             // A game tick is always longer than an audio frame so we can safely pop the maximum number of extra
             // samples every time, since a request from idle will always be >= the size of the idle excess buffer.
