@@ -43,7 +43,7 @@ public class Cordyceps2Main : BaseUnityPlugin
                 TimeControl.MoreSlugcats_SpeedRunTimer_GetTimerTickIncrement_Hook;
             IL.RainWorldGame.RawUpdate += TimeControl.RainWorldGame_RawUpdate_ILHook;
 
-            On.MainLoopProcess.Update += Recording.MainLoopProcess_Update_Hook;
+            IL.MainLoopProcess.RawUpdate += Recording.MainLoopProcess_RawUpdate_ILHook;
             
             MachineConnector.SetRegisteredOI("esegn.cordyceps2", Cordyceps2Settings.Instance);
 

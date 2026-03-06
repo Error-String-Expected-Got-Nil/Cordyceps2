@@ -1,10 +1,15 @@
 ﻿using System;
 using System.IO;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using FFmpeg.AutoGen;
+using HarmonyLib;
+using MonoMod.Cil;
 using UnityEngine;
 using Object = UnityEngine.Object;
+using OpCodes = Mono.Cecil.Cil.OpCodes;
 
 namespace Cordyceps2;
 
@@ -249,51 +254,58 @@ public static class Recording
     }
 
     // Hook responsible for making the frame requests that eventually result in data being submitted to the encoder.
-    // Being a hook on MainLoopProcess.Update, it is inherently synced with the time control already.
-    // Only runs if currently recording and the current true main loop is this process, to make sure this only runs
-    // once per update.
-    public static void MainLoopProcess_Update_Hook(On.MainLoopProcess.orig_Update orig, MainLoopProcess self)
+    // Previously a hook on MainLoopProcess.Update(), but it wasn't working because I suspect the runtime was deleting
+    // it due to MainLoopProcess.Update() being an empty method. So now we just apply the code immediately after
+    // MainLoopProcess.RawUpdate() calls Update(), since that's the only place it's called. 
+    public static void MainLoopProcess_RawUpdate_ILHook(ILContext context)
     {
-        orig(self);
+        var cursor = new ILCursor(context);
         
-        try
-        {
-            // TODO: There's something fucky going with this. When Rain World is launched with debug/development
-            //  binaries, this logic works fine, frame requests are made, recordings work. However, when launched with
-            //  release binaries, it stops working. Whyyyy? Why is that? Am I being punished? Did I do something wrong?
-            //  Ethically or morally, I mean. Clearly I did something *logically* wrong, since it ISN'T WORKING
-            
-            if (self.manager.currentMainLoop != self) return;
-            
-            CheckInputsRecording();
-            
-            if (Status != RecordStatus.Recording) return;
+        // Find the call to MainLoopProcess.Update()
+        cursor.GotoNext(MoveType.After,
+            x => x.MatchCallvirt<MainLoopProcess>("Update")
+        );
+        
+        // Push the MainLoopProcess instance
+        cursor.Emit(OpCodes.Ldarg_0);
 
-            var tickrate = self is RainWorldGame 
-                ? TimeControl.UnmodifiedTickrate 
-                : self.framesPerSecond;
-            
-            _frameRequestCounter += (double)Cordyceps2Settings.RecordingFps.Value / tickrate;
-            var requestCount = (int)Math.Floor(_frameRequestCounter);
-            
-            if (requestCount <= 0) return;
-            
-            _videoCapture.RequestFrames(requestCount);
-            RecordTime += (decimal)requestCount / Cordyceps2Settings.RecordingFps.Value;
-            _frameRequestCounter -= requestCount;
-
-            if (!Encoder.HasAudio) return;
-            
-            _sampleRequestCounter += (double)requestCount / Cordyceps2Settings.RecordingFps.Value 
-                                     * _audioCapture.SampleRate;
-            var sampleRequestCount = (int)Math.Floor(_sampleRequestCounter);
-            _audioCapture.RequestSamples(sampleRequestCount);
-            _sampleRequestCounter -= sampleRequestCount;
-        }
-        catch (Exception e)
+        // Emit a delegate for the handling code
+        cursor.EmitDelegate((MainLoopProcess self) =>
         {
-            Log($"ERROR - Exception in MainLoopProcess_Update_Hook: {e}");
-        }
+            try
+            {
+                if (self.manager.currentMainLoop != self) return;
+            
+                CheckInputsRecording();
+            
+                if (Status != RecordStatus.Recording) return;
+
+                var tickrate = self is RainWorldGame 
+                    ? TimeControl.UnmodifiedTickrate 
+                    : self.framesPerSecond;
+            
+                _frameRequestCounter += (double)Cordyceps2Settings.RecordingFps.Value / tickrate;
+                var requestCount = (int)Math.Floor(_frameRequestCounter);
+            
+                if (requestCount <= 0) return;
+            
+                _videoCapture.RequestFrames(requestCount);
+                RecordTime += (decimal)requestCount / Cordyceps2Settings.RecordingFps.Value;
+                _frameRequestCounter -= requestCount;
+
+                if (!Encoder.HasAudio) return;
+            
+                _sampleRequestCounter += (double)requestCount / Cordyceps2Settings.RecordingFps.Value 
+                                         * _audioCapture.SampleRate;
+                var sampleRequestCount = (int)Math.Floor(_sampleRequestCounter);
+                _audioCapture.RequestSamples(sampleRequestCount);
+                _sampleRequestCounter -= sampleRequestCount;
+            }
+            catch (Exception e)
+            {
+                Log($"ERROR - Exception in MainLoopProcess_RawUpdate_ILHook: {e}");
+            }
+        });
     }
 
     private static void CheckInputsRecording()
