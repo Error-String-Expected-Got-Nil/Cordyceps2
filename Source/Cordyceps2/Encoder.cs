@@ -706,7 +706,9 @@ public unsafe class Encoder : IDisposable
         if (ffmpeg.avcodec_parameters_from_context(_videoStream->codecpar, _videoCodecContext) < 0)
             throw new EncoderException("Failed to get video codec parameters.");
 
-        _videoCodecThread = Task.Run(VideoCodecThread);
+        var tf = new TaskFactory();
+        
+        _videoCodecThread = tf.StartNew(VideoCodecThread, TaskCreationOptions.LongRunning);
         _videoCodecThread.ContinueWith(vthread =>
             {
                 Faulted = true;
@@ -726,7 +728,7 @@ public unsafe class Encoder : IDisposable
             if (ffmpeg.avcodec_parameters_from_context(_audioStream->codecpar, _audioCodecContext) < 0)
                 throw new EncoderException("Failed to get audio codec parameters.");
 
-            _audioCodecThread = Task.Run(AudioCodecThread);
+            _audioCodecThread = tf.StartNew(AudioCodecThread, TaskCreationOptions.LongRunning);
             _audioCodecThread.ContinueWith(athread =>
                 {
                     Faulted = true;
@@ -753,7 +755,7 @@ public unsafe class Encoder : IDisposable
         
         ffmpeg.av_dict_free(&options);
 
-        _muxerThread = Task.Run(MuxerThread);
+        _muxerThread = tf.StartNew(MuxerThread, TaskCreationOptions.LongRunning);
         _muxerThread.ContinueWith(mthread =>
             {
                 Faulted = true;
