@@ -19,7 +19,6 @@ public class AudioCapture : MonoBehaviour
 
     private float[] _sampleBuffer; // Intermediate buffer for samples copied from each filter read
     private double _sampleAccum; // Accumulator for tracking when to take the next sample
-    private int _floatCount; // Number of floats taken on this read
     
     public int SampleRate { get; private set; }
 
@@ -54,13 +53,13 @@ public class AudioCapture : MonoBehaviour
         var timeFactor = TimeControl.ArtificialTimeFactor;
 
         // Do nothing if time is stopped, since we won't be reading any samples anyway.
-        if (timeFactor == 0.0f) return;
+        if (timeFactor == 0.0) return;
 
         // Also do nothing if there's no request. Attempt at simplification compared to previous version: Don't bother
         // saving any samples if there's no request, it may not actually be necessary.
         if (currentRequest <= 0) return;
 
-        _floatCount = 0;
+        var floatCount = 0;
         for (var i = 0; i < data.Length; i += 2)
         {
             _sampleAccum += timeFactor;
@@ -68,16 +67,16 @@ public class AudioCapture : MonoBehaviour
             if (_sampleAccum < 1.0) continue;
             
             _sampleAccum -= 1.0;
-            _sampleBuffer[_floatCount] = data[i];
-            _sampleBuffer[_floatCount + 1] = data[i + 1];
-            _floatCount += 2;
+            _sampleBuffer[floatCount] = data[i];
+            _sampleBuffer[floatCount + 1] = data[i + 1];
+            floatCount += 2;
         }
         
         // Another simplification: If there is a request, we submit all recorded samples and decrement the request
         // amount by that much, even into the negatives. Theory being that it doesn't really matter if we give too much
         // data since it's likely that the next frame is going to be asking for it anyway.
-        FillSubmitBuffer(_sampleBuffer, _floatCount);
-        Interlocked.Add(ref _requestedSamples, -(_floatCount / 2));
+        FillSubmitBuffer(_sampleBuffer, floatCount);
+        Interlocked.Add(ref _requestedSamples, -(floatCount / 2));
     }
     
     // Pulls data from source and copies it into the audio data submit buffer until either source is empty or the buffer
@@ -110,7 +109,7 @@ public class AudioCapture : MonoBehaviour
     
     public void FlushSubmitBuffer()
     {
-        _floatCount = 0;
+        _requestedSamples = 0;
         if (_submitBuffer == null) return;
         Array.Clear(_submitBuffer, _filledBytes, _submitBuffer.Length - _filledBytes);
         Recording.Encoder.SubmitAudioData(_submitBuffer);

@@ -14,6 +14,7 @@ public static class TimeControl
     // The factor TimeControl is slowing the game down by relative to what it would be normally. Ex.: if the current
     // default tickrate is 30 due to being in the depths, and TimeControl is slowing the tickrate down to 20, then this
     // will be 20 / 30.
+    // TODO: Reset when RainWorldGame is no longer main loop
     public static double ArtificialTimeFactor = 1.0;
     
     public static bool TickrateCapOn;
@@ -58,7 +59,11 @@ public static class TimeControl
 
                 CheckInputs(dt);
 
-                if (!CanAffectTickrate()) return;
+                if (!CanAffectTickrate())
+                {
+                    ArtificialTimeFactor = 1.0;
+                    return;
+                }
                 
                 var targetTickrate = TickPauseOn ? 0 : Math.Min(DesiredTickrate, game.framesPerSecond);
                 ArtificialTimeFactor = UnmodifiedTickrate == 0 ? 0.0 : targetTickrate / (double)UnmodifiedTickrate;
