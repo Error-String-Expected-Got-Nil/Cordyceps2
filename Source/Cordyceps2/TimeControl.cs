@@ -173,6 +173,10 @@ public static class TimeControl
             HeldKeys[4] = true;
 
             if (!TickPauseOn) return;
+            
+            // TODO: DEBUG
+            Log($"DEBUG - Tick advance hit at samples = {Recording._audioCapture._debugSamples}");
+            
             WaitingForTick = true;
             TickPauseOn = false;
         }

@@ -18,7 +18,8 @@ public static class Recording
     private static double _frameRequestCounter;
     private static double _sampleRequestCounter;
     private static VideoCapture _videoCapture;
-    private static AudioCapture _audioCapture;
+    // TODO: DEBUG
+    public static AudioCapture _audioCapture;
     private static bool _startRecordingHeld;
     private static bool _stopRecordingHeld;
     
@@ -136,6 +137,9 @@ public static class Recording
         
         Log("Successfully started recording, output path: \"" + path + "\"");
         Status = RecordStatus.Recording;
+        
+        // TODO: DEBUG
+        _audioCapture.BeginDebug("buffer");
     }
 
     private static string GetFilename() => "Cordyceps2 " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + ".mp4";
@@ -225,6 +229,9 @@ public static class Recording
         
             Encoder.Dispose();
             Status = RecordStatus.Stopped;
+            
+            // TODO: DEBUG
+            _audioCapture.EndDebug();
         }
     }
     

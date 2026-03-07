@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Threading;
 using UnityEngine;
 
@@ -22,6 +23,11 @@ public class AudioCapture : MonoBehaviour
     
     public int SampleRate { get; private set; }
 
+    private bool _debug;
+    private byte[] _debugBuffer;
+    private FileStream _debugOutput;
+    public int _debugSamples;
+
     public void RequestSamples(int count)
     {
         Interlocked.Add(ref _requestedSamples, count);
@@ -39,6 +45,11 @@ public class AudioCapture : MonoBehaviour
         _sampleBuffer = new float[samplesPerFrame];
         
         SampleRate = config.sampleRate;
+        
+        // TODO: DEBUG
+        Log($"dspBufferSize: {config.dspBufferSize}");
+        Log($"sampleRate: {config.sampleRate}");
+        _debugBuffer = new byte[samplesPerFrame * 4];
     }
     
     // TODO: Mostly works! But tick advance and very very low tickrates seem to result in staticky popping, not sure
@@ -54,10 +65,26 @@ public class AudioCapture : MonoBehaviour
         // Do nothing if time is stopped, since we won't be reading any samples anyway.
         if (timeFactor == 0.0f) return;
 
+        // TODO: Debug code has revealed some interesting results.
+        //  - Strange "flat" sections in the audio track that appear to be garbage
+        //  - Sample request count is INCREASING over time! It *should* hover around 0, so what's going on there?
+        if (_debug)
+        {
+            Log($"DEBUG - samples = {_debugSamples}; request = {currentRequest}; excess = {1024 - currentRequest}; " +
+                $"write = {(currentRequest > 0 ? "yes" : "no")}");
+        }
+        
         // Also do nothing if there's no request. Attempt at simplification compared to previous version: Don't bother
         // saving any samples if there's no request, it may not actually be necessary.
         if (currentRequest <= 0) return;
-
+        
+        if (_debug)
+        {
+            _debugSamples += 1024;
+            Buffer.BlockCopy(data, 0, _debugBuffer, 0, _debugBuffer.Length);
+            _debugOutput.Write(_debugBuffer, 0, _debugBuffer.Length);
+        }
+        
         var floatCount = 0;
         for (var i = 0; i < data.Length; i += 2)
         {
@@ -115,6 +142,20 @@ public class AudioCapture : MonoBehaviour
         Recording.Encoder.SubmitAudioData(_submitBuffer);
         _submitBuffer = null;
         _filledBytes = 0;
+    }
+
+    public void BeginDebug(string filename)
+    {
+        _debugSamples = 0;
+        _debugOutput = File.Create(@"C:\cordyceps2\" + filename);
+        _debug = true;
+    }
+
+    public void EndDebug()
+    {
+        _debugOutput.Close();
+        _debugOutput = null;
+        _debug = false;
     }
 
     private static void Log(string str) => Debug.Log($"[Cordyceps2/Recording/AudioCapture] {str}");
