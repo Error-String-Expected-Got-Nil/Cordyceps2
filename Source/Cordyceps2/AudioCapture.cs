@@ -66,7 +66,7 @@ public class AudioCapture : MonoBehaviour
         if (timeFactor == 0.0f) return;
 
         // TODO: Debug code has revealed some interesting results.
-        //  - Strange "flat" sections in the audio track that appear to be garbage
+        //  - Strange "flat" sections in the audio track that appear to be garbage are almost exactly 1024 samples long
         //  - Sample request count is INCREASING over time! It *should* hover around 0, so what's going on there?
         if (_debug)
         {
