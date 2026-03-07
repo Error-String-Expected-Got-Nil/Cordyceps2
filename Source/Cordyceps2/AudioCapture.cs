@@ -68,6 +68,11 @@ public class AudioCapture : MonoBehaviour
         // TODO: Debug code has revealed some interesting results.
         //  - Strange "flat" sections in the audio track that appear to be garbage are almost exactly 1024 samples long
         //  - Sample request count is INCREASING over time! It *should* hover around 0, so what's going on there?
+        //  - The recorded audio track is shorter than the recorded video track by precisely the amount of un-recorded
+        //    samples.
+        //  - Sample request count behaves as-expected for continuous recording, but not tick-advance.
+        //  Possible desync. Seems like audio capture is NOT reading samples when it should, and occasionally reads
+        //  garbage, possibly as a direct result of this. Supports ArtificialTimeFactor desync theory?
         if (_debug)
         {
             Log($"DEBUG - samples = {_debugSamples}; request = {currentRequest}; excess = {1024 - currentRequest}; " +
