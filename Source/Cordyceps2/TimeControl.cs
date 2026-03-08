@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Diagnostics;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 namespace Cordyceps2;
 
@@ -30,6 +32,10 @@ public static class TimeControl
     private static float _keyHoldStopwatch;
 
     private static readonly bool[] HeldKeys = new bool[8];
+    
+    // TODO: DEBUG
+    private static bool _logNext;
+    private static float _lastTimeFactor = 1.0f;
     
     // IL Hook: Handles modifying the tickrate and calling input check function.
     public static void RainWorldGame_RawUpdate_ILHook(ILContext il)
@@ -64,7 +70,15 @@ public static class TimeControl
                     ArtificialTimeFactor = 1.0f;
                     return;
                 }
-                
+
+                // TODO: DEBUG
+                if (_logNext)
+                {
+                    Log($"DEBUG - Setting tickrate to 0 at raw = {Recording._audioCapture._debugSamplesRaw}; " +
+                        $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0: 0.00}ms");
+                    _logNext = false;
+                }
+
                 var targetTickrate = TickPauseOn ? 0 : Math.Min(DesiredTickrate, game.framesPerSecond);
                 ArtificialTimeFactor = UnmodifiedTickrate == 0 ? 0.0f : targetTickrate / (float)UnmodifiedTickrate;
                 game.framesPerSecond = targetTickrate;
@@ -72,6 +86,16 @@ public static class TimeControl
             catch (Exception e)
             {
                 Log($"ERROR - Exception in RainWorldGame.RawUpdate IL hook: {e}");
+            }
+            // TODO: DEBUG
+            finally
+            {
+                if (ArtificialTimeFactor != _lastTimeFactor)
+                {
+                    Log($"DEBUG - Time factor altered to {ArtificialTimeFactor} at " +
+                        $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms");
+                    _lastTimeFactor = ArtificialTimeFactor;
+                }
             }
         });
     }
@@ -106,6 +130,10 @@ public static class TimeControl
                 
             if (!WaitingForTick) return;
                 
+            // TODO: DEBUG
+            Log($"DEBUG - Finished waiting for next tick at raw = {Recording._audioCapture._debugSamplesRaw}; " +
+                $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms");
+            
             WaitingForTick = false;
             TickPauseOn = true;
         }
@@ -158,6 +186,11 @@ public static class TimeControl
 
             if (WaitingForTick) return;
             TickPauseOn = !TickPauseOn;
+            
+            // TODO: DEBUG
+            Log($"DEBUG - Toggle tick pause hit at raw = {Recording._audioCapture._debugSamplesRaw}; " +
+                $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms; " +
+                $"toggled to '{(TickPauseOn ? "on" : "off")}'");
         }
         else HeldKeys[3] = false;
 
@@ -175,7 +208,9 @@ public static class TimeControl
             if (!TickPauseOn) return;
             
             // TODO: DEBUG
-            Log($"DEBUG - Tick advance hit at samples = {Recording._audioCapture._debugSamples}");
+            Log($"DEBUG - Tick advance hit at raw = {Recording._audioCapture._debugSamplesRaw}; " +
+                $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms");
+            _logNext = true;
             
             WaitingForTick = true;
             TickPauseOn = false;

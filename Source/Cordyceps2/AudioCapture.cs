@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 namespace Cordyceps2;
 
@@ -25,9 +27,11 @@ public class AudioCapture : MonoBehaviour
 
     private bool _debug;
     private byte[] _debugBuffer;
-    private FileStream _debugOutput;
+    private FileStream _debugOutput1;
+    private FileStream _debugOutput2;
     public int _debugSamples;
-
+    public int _debugSamplesRaw;
+    
     public void RequestSamples(int count)
     {
         Interlocked.Add(ref _requestedSamples, count);
@@ -49,6 +53,7 @@ public class AudioCapture : MonoBehaviour
         // TODO: DEBUG
         Log($"dspBufferSize: {config.dspBufferSize}");
         Log($"sampleRate: {config.sampleRate}");
+        Log($"Stopwatch freq: {Stopwatch.Frequency}");
         _debugBuffer = new byte[samplesPerFrame * 4];
     }
     
@@ -62,9 +67,6 @@ public class AudioCapture : MonoBehaviour
         var currentRequest = _requestedSamples;
         var timeFactor = TimeControl.ArtificialTimeFactor;
 
-        // Do nothing if time is stopped, since we won't be reading any samples anyway.
-        if (timeFactor == 0.0f) return;
-
         // TODO: Debug code has revealed some interesting results.
         //  - Strange "flat" sections in the audio track that appear to be garbage are almost exactly 1024 samples long
         //  - Sample request count is INCREASING over time! It *should* hover around 0, so what's going on there?
@@ -73,11 +75,37 @@ public class AudioCapture : MonoBehaviour
         //  - Sample request count behaves as-expected for continuous recording, but not tick-advance.
         //  Possible desync. Seems like audio capture is NOT reading samples when it should, and occasionally reads
         //  garbage, possibly as a direct result of this. Supports ArtificialTimeFactor desync theory?
+        
+        // TODO: NEW DISCOVERY
+        //  IT'S A RACE CONDITIONNNNNNNNNN
+        //  It's possible for the following sequence of events to occur:
+        //  - Time factor is 0
+        //  - Audio read happens
+        //  - Tick advance happens
+        //  - Time factor updated to 1
+        //  - Game was already close to invoking next tick: Tick wait is finished
+        //  - Time factor updated to 0
+        //  - Audio read happens
+        //  This results in two consecutive audio reads seeing a time factor of 0, *even though it wasn't 0 in-between,*
+        //  and the raw audio output data shows that indeed samples are emitted in this case. I can think of a couple
+        //  solutions for this but I'll need to think about it some more to determine what exactly the best one is, or
+        //  which will actually work.
+        //   Also, I'm noticing that there's about 16 milliseconds between a tick wait finishing and the tickrate
+        //  actually being set to 0 again. Not sure what's up with that. I don't think it matters?
         if (_debug)
         {
-            Log($"DEBUG - samples = {_debugSamples}; request = {currentRequest}; excess = {1024 - currentRequest}; " +
-                $"write = {(currentRequest > 0 ? "yes" : "no")}");
+            Log($"DEBUG - samples = {_debugSamples}; raw = {_debugSamplesRaw}; request = {currentRequest}; " +
+                $"tf = {TimeControl.ArtificialTimeFactor}; " +
+                $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms; " +
+                $"write = {(timeFactor != 0.0f && currentRequest > 0 ? "yes" : "no")}; ");
+
+            _debugSamplesRaw += 1024;
+            Buffer.BlockCopy(data, 0, _debugBuffer, 0, _debugBuffer.Length);
+            _debugOutput2.Write(_debugBuffer, 0, _debugBuffer.Length);
         }
+        
+        // Do nothing if time is stopped, since we won't be reading any samples anyway.
+        if (timeFactor == 0.0f) return;
         
         // Also do nothing if there's no request. Attempt at simplification compared to previous version: Don't bother
         // saving any samples if there's no request, it may not actually be necessary.
@@ -86,8 +114,7 @@ public class AudioCapture : MonoBehaviour
         if (_debug)
         {
             _debugSamples += 1024;
-            Buffer.BlockCopy(data, 0, _debugBuffer, 0, _debugBuffer.Length);
-            _debugOutput.Write(_debugBuffer, 0, _debugBuffer.Length);
+            _debugOutput1.Write(_debugBuffer, 0, _debugBuffer.Length);
         }
         
         var floatCount = 0;
@@ -149,17 +176,21 @@ public class AudioCapture : MonoBehaviour
         _filledBytes = 0;
     }
 
-    public void BeginDebug(string filename)
+    public void BeginDebug(string recordedFilename, string rawFilename)
     {
         _debugSamples = 0;
-        _debugOutput = File.Create(@"C:\cordyceps2\" + filename);
+        _debugSamplesRaw = 0;
+        _debugOutput1 = File.Create(@"C:\cordyceps2\" + recordedFilename);
+        _debugOutput2 = File.Create(@"C:\cordyceps2\" + rawFilename);
         _debug = true;
     }
 
     public void EndDebug()
     {
-        _debugOutput.Close();
-        _debugOutput = null;
+        _debugOutput1.Close();
+        _debugOutput2.Close();
+        _debugOutput1 = null;
+        _debugOutput2 = null;
         _debug = false;
     }
 

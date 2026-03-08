@@ -27,6 +27,10 @@ public static class Recording
     public static decimal RecordTime { get; private set; }
     public static Encoder Encoder { get; private set; }
     public static bool BinariesLoaded { get; private set; }
+    public static float LastTimeFactor { get; private set; }
+
+    // TODO: DEBUG
+    public static int DebugFramesRequested;
     
     public static unsafe void Initialize()
     {
@@ -139,7 +143,8 @@ public static class Recording
         Status = RecordStatus.Recording;
         
         // TODO: DEBUG
-        _audioCapture.BeginDebug("buffer");
+        _audioCapture.BeginDebug("recorded", "raw");
+        DebugFramesRequested = 0;
     }
 
     private static string GetFilename() => "Cordyceps2 " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + ".mp4";
@@ -299,11 +304,15 @@ public static class Recording
                 RecordTime += (decimal)requestCount / Cordyceps2Settings.RecordingFps.Value;
                 _frameRequestCounter -= requestCount;
 
+                // TODO: DEBUG
+                DebugFramesRequested += requestCount;
+
                 if (!Encoder.HasAudio) return;
             
                 _sampleRequestCounter += (double)requestCount / Cordyceps2Settings.RecordingFps.Value 
                                          * _audioCapture.SampleRate;
                 var sampleRequestCount = (int)Math.Floor(_sampleRequestCounter);
+                LastTimeFactor = TimeControl.ArtificialTimeFactor;
                 _audioCapture.RequestSamples(sampleRequestCount);
                 _sampleRequestCounter -= sampleRequestCount;
             }
