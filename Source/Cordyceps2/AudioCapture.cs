@@ -66,6 +66,10 @@ public class AudioCapture : MonoBehaviour
         // at the start for use during this read.
         var currentRequest = _requestedSamples;
         var timeFactor = TimeControl.ArtificialTimeFactor;
+        
+        // TODO: DEBUG
+        var timestamp = Stopwatch.GetTimestamp();
+        TimeControl.AudioSync.Set();
 
         // TODO: Debug code has revealed some interesting results.
         //  - Strange "flat" sections in the audio track that appear to be garbage are almost exactly 1024 samples long
@@ -95,9 +99,9 @@ public class AudioCapture : MonoBehaviour
         if (_debug)
         {
             Log($"DEBUG - samples = {_debugSamples}; raw = {_debugSamplesRaw}; request = {currentRequest}; " +
-                $"tf = {TimeControl.ArtificialTimeFactor}; " +
-                $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms; " +
-                $"write = {(timeFactor != 0.0f && currentRequest > 0 ? "yes" : "no")}; ");
+                $"tf = {timeFactor}; " +
+                $"time = {(double)timestamp / Stopwatch.Frequency * 1000.0 : 0.00}ms; " +
+                $"write = {(timeFactor != 0.0f && currentRequest > 0 ? "yes" : "no")}");
 
             _debugSamplesRaw += 1024;
             Buffer.BlockCopy(data, 0, _debugBuffer, 0, _debugBuffer.Length);
@@ -105,11 +109,9 @@ public class AudioCapture : MonoBehaviour
         }
         
         // Do nothing if time is stopped, since we won't be reading any samples anyway.
-        if (timeFactor == 0.0f) return;
-        
         // Also do nothing if there's no request. Attempt at simplification compared to previous version: Don't bother
         // saving any samples if there's no request, it may not actually be necessary.
-        if (currentRequest <= 0) return;
+        if (timeFactor == 0.0f || currentRequest <= 0) return;
         
         if (_debug)
         {

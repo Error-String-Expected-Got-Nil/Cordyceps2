@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -6,6 +7,7 @@ using FFmpeg.AutoGen;
 using MonoMod.Cil;
 using Music;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 using Object = UnityEngine.Object;
 using OpCodes = Mono.Cecil.Cil.OpCodes;
 
@@ -28,9 +30,6 @@ public static class Recording
     public static Encoder Encoder { get; private set; }
     public static bool BinariesLoaded { get; private set; }
     public static float LastTimeFactor { get; private set; }
-
-    // TODO: DEBUG
-    public static int DebugFramesRequested;
     
     public static unsafe void Initialize()
     {
@@ -144,7 +143,6 @@ public static class Recording
         
         // TODO: DEBUG
         _audioCapture.BeginDebug("recorded", "raw");
-        DebugFramesRequested = 0;
     }
 
     private static string GetFilename() => "Cordyceps2 " + DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + ".mp4";
@@ -305,9 +303,6 @@ public static class Recording
                 RecordTime += (decimal)requestCount / Cordyceps2Settings.RecordingFps.Value;
                 _frameRequestCounter -= requestCount;
 
-                // TODO: DEBUG
-                DebugFramesRequested += requestCount;
-
                 if (!Encoder.HasAudio) return;
             
                 _sampleRequestCounter += (double)requestCount / Cordyceps2Settings.RecordingFps.Value 
@@ -316,6 +311,11 @@ public static class Recording
                 LastTimeFactor = TimeControl.ArtificialTimeFactor;
                 _audioCapture.RequestSamples(sampleRequestCount);
                 _sampleRequestCounter -= sampleRequestCount;
+                
+                // TODO DEBUG
+                Log($"DEBUG - Requesting {requestCount} frames and {sampleRequestCount} samples at " +
+                    $"raw = {_audioCapture._debugSamplesRaw}; " +
+                    $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms");
             }
             catch (Exception e)
             {
