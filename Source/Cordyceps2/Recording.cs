@@ -224,7 +224,7 @@ public static class Recording
                             : (Encoder.AudioEncodeTime / Encoder.AudioFrames * 1000).ToString("0.00")) 
                         + "ms");
                     Log("Relative audio encode rate: " + 
-                        (Encoder.VideoEncodeTime == 0 
+                        (Encoder.AudioEncodeTime == 0 
                             ? "0.00" 
                             : (RecordTime / Encoder.AudioEncodeTime).ToString("0.00")) 
                         + "x");
