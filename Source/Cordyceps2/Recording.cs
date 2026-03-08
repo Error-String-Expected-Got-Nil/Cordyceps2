@@ -244,6 +244,7 @@ public static class Recording
     {
         // TODO: Automatically pause game, show info panel, and put warning message in it if this happens
         RecordTime -= (decimal)1 / Cordyceps2Settings.RecordingFps.Value;
+        // TODO: Should decrement requested audio samples too to prevent audio desync
     }
 
     private static void Notify_EncoderFault(Encoder sender, string origin, AggregateException cause, Task stopTask)
