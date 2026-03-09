@@ -69,15 +69,6 @@ public class AudioCapture : MonoBehaviour
         // at the start for use during this read.
         var currentRequest = _requestedSamples;
         var timeFactor = TimeControl.ArtificialTimeFactor;
-        
-        // TODO: DEBUG
-        TimeControl.AudioSyncTail.Set();
-        if (TimeControl.SignalAudioSync)
-        {
-            Log("DEBUG - Audio thread signaled to wait at " +
-                $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0: 0.00}ms");
-            TimeControl.AudioSyncHead.Set();
-        }
 
         // TODO: Debug code has revealed some interesting results.
         //  - Strange "flat" sections in the audio track that appear to be garbage are almost exactly 1024 samples long

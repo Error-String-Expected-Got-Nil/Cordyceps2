@@ -36,12 +36,7 @@ public static class TimeControl
     
     // TODO: DEBUG
     private static float _lastTimeFactor = 1.0f;
-
-    private static bool _needAudioSync;
-    public static readonly EventWaitHandle AudioSyncHead = new(false, EventResetMode.ManualReset);
-    public static readonly EventWaitHandle AudioSyncTail = new(true, EventResetMode.ManualReset);
-    public static bool SignalAudioSync { get; private set; }
-    private static bool _audioThreadWaiting;
+    private static bool _wasPaused;
     
     // IL Hook: Handles modifying the tickrate and calling input check function.
     public static void RainWorldGame_RawUpdate_ILHook(ILContext il)
@@ -74,37 +69,27 @@ public static class TimeControl
                 UnmodifiedTickrate = game.framesPerSecond;
 
                 CheckInputs(dt);
-                
-                // TODO: DEBUG
-                if (Cordyceps2Settings.RecordAudio.Value)
-                {
-                    AudioSyncTail.WaitOne();
-                    if (_needAudioSync)
-                    {
-                        Log("DEBUG - Waiting on next audio read at " +
-                            $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0: 0.00}ms");
-                        AudioSyncHead.Reset();
-                        SignalAudioSync = true;
-                        AudioSyncHead.WaitOne();
-                        Log("DEBUG - Finished waiting on audio read at " +
-                            $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0: 0.00}ms");
-                        SignalAudioSync = false;
-                        AudioSyncTail.Reset();
-                        AudioListener.pause = true;
-                        _audioThreadWaiting = true;
-                    }
-                }
-                _needAudioSync = false;
 
+                // TODO: DEBUG
+                if (Cordyceps2Settings.RecordAudio.Value && TickPauseOn && !_wasPaused)
+                {
+                    Log("DEBUG - Pausing audio at " +
+                        $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms");
+                    AudioListener.pause = true;
+                    _wasPaused = true;
+                }
+                
                 if (!CanAffectTickrate())
                 {
                     ArtificialTimeFactor = 1.0f;
+                    CheckUnpause();
                     return;
                 }
 
                 var targetTickrate = TickPauseOn ? 0 : Math.Min(DesiredTickrate, game.framesPerSecond);
                 ArtificialTimeFactor = UnmodifiedTickrate == 0 ? 0.0f : targetTickrate / (float)UnmodifiedTickrate;
                 game.framesPerSecond = targetTickrate;
+                CheckUnpause();
             }
             catch (Exception e)
             {
@@ -120,6 +105,22 @@ public static class TimeControl
                     _lastTimeFactor = ArtificialTimeFactor;
                 }
             }
+
+            // TODO: DEBUG
+            return;
+
+            void CheckUnpause()
+            {
+                if (!Cordyceps2Settings.RecordAudio.Value) return;
+                if (!TickPauseOn && _wasPaused)
+                {
+                    Log("DEBUG - Running GrafUpdate and unpausing audio at " +
+                        $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms");
+                    game.GrafUpdate(game.myTimeStacker);
+                    AudioListener.pause = false;
+                    _wasPaused = false;
+                }
+            }
         });
     }
 
@@ -132,12 +133,7 @@ public static class TimeControl
 
         try
         {
-            if (!_audioThreadWaiting) return;
             
-            Log("DEBUG - TimeControl releasing audio thread at " +
-                $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0: 0.00}ms");
-            AudioListener.pause = false;
-            _audioThreadWaiting = false;
         }
         catch (Exception e)
         {
@@ -183,8 +179,6 @@ public static class TimeControl
             
             WaitingForTick = false;
             TickPauseOn = true;
-            
-            _needAudioSync = true;
         }
         catch (Exception e)
         {
@@ -240,8 +234,6 @@ public static class TimeControl
             Log($"DEBUG - Toggle tick pause hit at raw = {Recording._audioCapture._debugSamplesRaw}; " +
                 $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms; " +
                 $"toggled to '{(TickPauseOn ? "on" : "off")}'");
-            
-            _needAudioSync = true;
         }
         else HeldKeys[3] = false;
 
@@ -264,9 +256,6 @@ public static class TimeControl
             
             WaitingForTick = true;
             TickPauseOn = false;
-            
-            // TODO: DEBUG
-            _needAudioSync = true;
         }
         else HeldKeys[4] = false;
 
