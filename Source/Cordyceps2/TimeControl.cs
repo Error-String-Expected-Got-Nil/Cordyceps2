@@ -36,12 +36,8 @@ public static class TimeControl
     
     // TODO: DEBUG
     private static float _lastTimeFactor = 1.0f;
-
-    private static bool _needAudioSync;
-    public static readonly EventWaitHandle AudioSyncHead = new(false, EventResetMode.ManualReset);
-    public static readonly EventWaitHandle AudioSyncTail = new(true, EventResetMode.ManualReset);
-    public static bool SignalAudioSync { get; private set; }
-    private static bool _audioThreadWaiting;
+    private static bool _needAudioSync = false;
+    public static readonly EventWaitHandle AudioSync = new(false, EventResetMode.ManualReset);
     
     // IL Hook: Handles modifying the tickrate and calling input check function.
     public static void RainWorldGame_RawUpdate_ILHook(ILContext il)
@@ -76,25 +72,13 @@ public static class TimeControl
                 CheckInputs(dt);
                 
                 // TODO: DEBUG
-                if (Cordyceps2Settings.RecordAudio.Value)
+                if (Cordyceps2Settings.RecordAudio.Value && _needAudioSync)
                 {
-                    AudioSyncTail.WaitOne();
-                    if (_needAudioSync)
-                    {
-                        Log("DEBUG - Waiting on next audio read at " +
-                            $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0: 0.00}ms");
-                        AudioSyncHead.Reset();
-                        SignalAudioSync = true;
-                        AudioSyncHead.WaitOne();
-                        Log("DEBUG - Finished waiting on audio read at " +
-                            $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0: 0.00}ms");
-                        SignalAudioSync = false;
-                        AudioSyncTail.Reset();
-                        AudioListener.pause = true;
-                        _audioThreadWaiting = true;
-                    }
+                    Log("DEBUG - Waiting on next audio read at " + 
+                        $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms");
+                    AudioSync.WaitOne();
+                    _needAudioSync = false;
                 }
-                _needAudioSync = false;
 
                 if (!CanAffectTickrate())
                 {
@@ -121,28 +105,6 @@ public static class TimeControl
                 }
             }
         });
-    }
-
-    // TODO: DEBUG
-    // Handles a part of audio syncing during recording.
-    public static void RainWorldGame_GrafUpdate_Hook(On.RainWorldGame.orig_GrafUpdate orig, RainWorldGame self, 
-        float timeStacker)
-    {
-        orig(self, timeStacker);
-
-        try
-        {
-            if (!_audioThreadWaiting) return;
-            
-            Log("DEBUG - TimeControl releasing audio thread at " +
-                $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0: 0.00}ms");
-            AudioListener.pause = false;
-            _audioThreadWaiting = false;
-        }
-        catch (Exception e)
-        {
-            Log($"ERROR - Exception in RainWorldGame_GrafUpdate_Hook: {e}");
-        }
     }
     
     // Hook: Adjust speedrun timer to remove changes from Cordyceps time control.
@@ -183,8 +145,6 @@ public static class TimeControl
             
             WaitingForTick = false;
             TickPauseOn = true;
-            
-            _needAudioSync = true;
         }
         catch (Exception e)
         {
@@ -240,7 +200,7 @@ public static class TimeControl
             Log($"DEBUG - Toggle tick pause hit at raw = {Recording._audioCapture._debugSamplesRaw}; " +
                 $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms; " +
                 $"toggled to '{(TickPauseOn ? "on" : "off")}'");
-            
+
             _needAudioSync = true;
         }
         else HeldKeys[3] = false;
@@ -266,6 +226,7 @@ public static class TimeControl
             TickPauseOn = false;
             
             // TODO: DEBUG
+            AudioSync.Reset();
             _needAudioSync = true;
         }
         else HeldKeys[4] = false;
