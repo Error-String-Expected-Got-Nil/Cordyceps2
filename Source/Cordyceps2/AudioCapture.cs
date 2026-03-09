@@ -62,14 +62,22 @@ public class AudioCapture : MonoBehaviour
     //  Possibly need to synchronize ArtificialTimeFactor more carefully?
     private void OnAudioFilterRead(float[] data, int channels)
     {
+        // Do nothing if we're not trying to record audio anyway
+        if (!Cordyceps2Settings.RecordAudio.Value) return;
+        
         // Values that are taken/modified by other threads and therefore may change during execution, so we save them
         // at the start for use during this read.
         var currentRequest = _requestedSamples;
         var timeFactor = TimeControl.ArtificialTimeFactor;
         
         // TODO: DEBUG
-        var timestamp = Stopwatch.GetTimestamp();
-        TimeControl.AudioSync.Set();
+        TimeControl.AudioSyncTail.Set();
+        if (TimeControl.SignalAudioSync)
+        {
+            Log("DEBUG - Audio thread signaled to wait at " +
+                $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0: 0.00}ms");
+            TimeControl.AudioSyncHead.Set();
+        }
 
         // TODO: Debug code has revealed some interesting results.
         //  - Strange "flat" sections in the audio track that appear to be garbage are almost exactly 1024 samples long
@@ -100,8 +108,8 @@ public class AudioCapture : MonoBehaviour
         {
             Log($"DEBUG - samples = {_debugSamples}; raw = {_debugSamplesRaw}; request = {currentRequest}; " +
                 $"tf = {timeFactor}; " +
-                $"time = {(double)timestamp / Stopwatch.Frequency * 1000.0 : 0.00}ms; " +
-                $"write = {(timeFactor != 0.0f && currentRequest > 0 ? "yes" : "no")}");
+                $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms; " +
+                $"write = {(timeFactor != 0.0f /*&& currentRequest > 0*/ ? "yes" : "no")}");
 
             _debugSamplesRaw += 1024;
             Buffer.BlockCopy(data, 0, _debugBuffer, 0, _debugBuffer.Length);
@@ -111,7 +119,7 @@ public class AudioCapture : MonoBehaviour
         // Do nothing if time is stopped, since we won't be reading any samples anyway.
         // Also do nothing if there's no request. Attempt at simplification compared to previous version: Don't bother
         // saving any samples if there's no request, it may not actually be necessary.
-        if (timeFactor == 0.0f || currentRequest <= 0) return;
+        if (Recording.Status != RecordStatus.Recording || timeFactor == 0.0f /*|| currentRequest <= 0*/) return;
         
         if (_debug)
         {

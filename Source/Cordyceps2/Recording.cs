@@ -285,7 +285,14 @@ public static class Recording
             try
             {
                 if (self.manager.currentMainLoop != self) return;
-                
+
+                if (self.myTimeStacker >= 2.0f && Status == RecordStatus.Recording)
+                {
+                    Log($"DEBUG - Time stacker was {self.myTimeStacker} at " +
+                        $"raw = {_audioCapture._debugSamplesRaw}; " +
+                        $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms");
+                }
+                    
                 CheckInputsRecording();
             
                 if (Status != RecordStatus.Recording) return;
@@ -305,6 +312,10 @@ public static class Recording
 
                 if (!Encoder.HasAudio) return;
             
+                // TODO: Theory, maybe I don't even need to bother with sample requests? Intrinsicly, if there is a time
+                //  factor above 0 on an audio read, there IS valid audio data on that frame, so it should be read.
+                //  Pretty sure, anyway. Need to test that. As-is however, sample request is causing valid reads to be
+                //  missed, which is not good.
                 _sampleRequestCounter += (double)requestCount / Cordyceps2Settings.RecordingFps.Value 
                                          * _audioCapture.SampleRate;
                 var sampleRequestCount = (int)Math.Floor(_sampleRequestCounter);
