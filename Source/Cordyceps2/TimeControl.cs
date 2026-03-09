@@ -76,9 +76,12 @@ public static class TimeControl
                 {
                     Log("DEBUG - Waiting on next audio read at " + 
                         $"time = {(double)Stopwatch.GetTimestamp() / Stopwatch.Frequency * 1000.0 : 0.00}ms");
+                    AudioSync.Reset();
                     AudioSync.WaitOne();
-                    _needAudioSync = false;
+                    
+                    // TODO: Test forcing a GrafUpdate
                 }
+                _needAudioSync = false;
 
                 if (!CanAffectTickrate())
                 {
@@ -145,6 +148,8 @@ public static class TimeControl
             
             WaitingForTick = false;
             TickPauseOn = true;
+            
+            _needAudioSync = true;
         }
         catch (Exception e)
         {
@@ -226,7 +231,6 @@ public static class TimeControl
             TickPauseOn = false;
             
             // TODO: DEBUG
-            AudioSync.Reset();
             _needAudioSync = true;
         }
         else HeldKeys[4] = false;
